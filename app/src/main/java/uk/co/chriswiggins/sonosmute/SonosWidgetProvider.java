@@ -97,10 +97,8 @@ public class SonosWidgetProvider extends AppWidgetProvider {
    * Called by SonosService when something happens that might need the widget
    * to update (wi-fi connected/disconnected, a Sonos system found etc.)
    */
-  void notifyChange(SonosService service) {
-    logger.finest("Received a notifyChange");
+  void notifyChange(SonosService service, SonosService.Change change) {
     if (hasInstances(service)) {
-      logger.finest("Acting on the received notifyChange");
       performUpdate(service, null);
     }
   }
@@ -113,17 +111,26 @@ public class SonosWidgetProvider extends AppWidgetProvider {
     final Resources res = service.getResources();
     final RemoteViews views = new RemoteViews(service.getPackageName(), R.layout.sonos_widget);
 
-    logger.finer("Setting status text");
-    views.setTextViewText(R.id.info_area, service.getStatus());
+    if (!service.isWifiConnected()) {
+      views.setViewVisibility(R.id.control_disabled, View.VISIBLE);
+      views.setViewVisibility(R.id.control_pause, View.GONE);
+      views.setViewVisibility(R.id.control_muted, View.GONE);
+      views.setViewVisibility(R.id.control_count, View.GONE);
 
-    if (service.isMuted()) {
-      views.setViewVisibility(R.id.control_pause_temporarily, View.GONE);
-      views.setViewVisibility(R.id.control_pause_temporarily_deactivated, View.VISIBLE);
-      views.setTextViewText(R.id.control_pause_temporarily_deactivated, Integer.toString(service.getSecondsUntilUnmute()));
+    } else if (service.isMuted()) {
+      views.setViewVisibility(R.id.control_disabled, View.GONE);
+      views.setViewVisibility(R.id.control_pause, View.GONE);
+      views.setViewVisibility(R.id.control_muted, View.VISIBLE);
+      views.setViewVisibility(R.id.control_count, View.VISIBLE);
+      views.setTextViewText(R.id.control_muted, Integer.toString(service.getSecondsUntilUnmute()));
+      views.setTextViewText(R.id.control_count, Integer.toString(service.getNumKnownSonosSystems()));
 
     } else {
-      views.setViewVisibility(R.id.control_pause_temporarily, View.VISIBLE);
-      views.setViewVisibility(R.id.control_pause_temporarily_deactivated, View.GONE);
+      views.setViewVisibility(R.id.control_disabled, View.GONE);
+      views.setViewVisibility(R.id.control_pause, View.VISIBLE);
+      views.setViewVisibility(R.id.control_muted, View.GONE);
+      views.setViewVisibility(R.id.control_count, View.VISIBLE);
+      views.setTextViewText(R.id.control_count, Integer.toString(service.getNumKnownSonosSystems()));
     }
 
     // Link actions buttons to intents
@@ -137,8 +144,8 @@ public class SonosWidgetProvider extends AppWidgetProvider {
     Intent intent = new Intent(SonosService.PAUSETEMPORARILY_ACTION);
     intent.setComponent(new ComponentName(context, SonosService.class));
     PendingIntent pendingIntent = PendingIntent.getService(context, 0 /* no requestCode */, intent, 0 /* no flags */);
-    views.setOnClickPendingIntent(R.id.control_pause_temporarily, pendingIntent);
-    views.setOnClickPendingIntent(R.id.control_pause_temporarily_deactivated, pendingIntent);
+    views.setOnClickPendingIntent(R.id.control_pause, pendingIntent);
+    views.setOnClickPendingIntent(R.id.control_muted, pendingIntent);
   }
 
 }

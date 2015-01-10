@@ -44,6 +44,13 @@ public class SonosService extends Service {
   public static final String PLAYSTATE_CHANGED = "uk.co.chriswiggins.sonoscontrol.playstatechanged";
   public static final String PAUSETEMPORARILY_ACTION = "uk.co.chrisiwggins.sonoscontrol.pausetemporarily";
 
+  /**
+   * Used to communicate what change has happened to the widget.
+   */
+  public static enum Change {
+    MUTED, UNMUTED, TICK, WIFI_CONNECTED, WIFI_DISCONNECTED, SONOS_ADDED, SONOS_REMOVED
+  }
+
   private AndroidUpnpService upnpService;
   private ServiceConnection serviceConnection = new SonosServiceConnection();
   private BrowseRegistryListener registryListener = new BrowseRegistryListener();
@@ -151,6 +158,7 @@ public class SonosService extends Service {
     String action = intent.getAction();
     String cmd = intent.getStringExtra("command");
     logger.info("Process intent: action = " + action + ", cmd = " + cmd);
+    logger.info("Current state:" + getCurrentState());
 
     if (SonosWidgetProvider.CMDAPPWIDGETUPDATE.equals(cmd)) {
       logger.fine("Doing wrap around thing");
@@ -201,7 +209,7 @@ public class SonosService extends Service {
         unmuteFuture = executor.schedule(new Unmute(), unmuteTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
         // Update the UI right now.
-        sonosWidgetProvider.notifyChange(SonosService.this);
+        sonosWidgetProvider.notifyChange(SonosService.this, Change.MUTED);
 
         logger.info("unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
       }
@@ -210,9 +218,9 @@ public class SonosService extends Service {
 
 
   /**
-   * Gets the status of the system (used to display it in the widget).
+   * Gets the status of the system (for logging purposes).
    */
-  public String getStatus() {
+  public String getCurrentState() {
     if (!wifiConnected) {
       return "No wi-fi";
     } else if (sonoses.isEmpty()) {
@@ -220,14 +228,24 @@ public class SonosService extends Service {
     } else if (previousMuteStates.isEmpty()) {
       return "Found " + sonoses.size() + " Sonos systems";
     } else {
-      logger.info("unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f));
-      return Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " seconds to unmute...";
+      return "Muted. Seconds until unmute: " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f);
     }
+  }
+
+
+  public boolean isWifiConnected() {
+    return wifiConnected;
   }
 
 
   public int getSecondsUntilUnmute() {
     return Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f);
+  }
+
+
+
+  public int getNumKnownSonosSystems() {
+    return sonoses.size();
   }
 
 
@@ -240,7 +258,7 @@ public class SonosService extends Service {
 
   class UpdateUI implements Runnable {
     public void run() {
-      sonosWidgetProvider.notifyChange(SonosService.this);
+      sonosWidgetProvider.notifyChange(SonosService.this, Change.TICK);
     }
   }
 
@@ -252,6 +270,8 @@ public class SonosService extends Service {
 
     public void run() {
       synchronized (previousMuteStates) {
+
+        logger.info("Current state:" + getCurrentState());
 
         // Need to check it is actually time to unmute, in case the user
         // pressed the button again as we were called. Another delayed call
@@ -268,7 +288,7 @@ public class SonosService extends Service {
 
           previousMuteStates.clear();
           tickerFuture.cancel(false);
-          sonosWidgetProvider.notifyChange(SonosService.this);
+          sonosWidgetProvider.notifyChange(SonosService.this, Change.UNMUTED);
         }
       }
     }
@@ -294,12 +314,12 @@ public class SonosService extends Service {
           if (networkInfo.getState() == NetworkInfo.State.CONNECTED) {
             logger.fine("Wi-fi connected.");
             wifiConnected = true;
-            sonosWidgetProvider.notifyChange(SonosService.this);
+            sonosWidgetProvider.notifyChange(SonosService.this, Change.WIFI_CONNECTED);
 
           } else {
             logger.fine("Wi-fi not connected.");
             wifiConnected = false;
-            sonosWidgetProvider.notifyChange(SonosService.this);
+            sonosWidgetProvider.notifyChange(SonosService.this, Change.WIFI_DISCONNECTED);
           }
         }
       }
@@ -390,7 +410,7 @@ public class SonosService extends Service {
 
           sonoses.put(device.getIdentity().getUdn().getIdentifierString(), sonos);
 
-          sonosWidgetProvider.notifyChange(SonosService.this);
+          sonosWidgetProvider.notifyChange(SonosService.this, Change.SONOS_ADDED);
         }
       }
     }
@@ -402,7 +422,7 @@ public class SonosService extends Service {
       if (device.isFullyHydrated()) {
         if (sonoses.remove(device.getIdentity().getUdn().getIdentifierString()) != null) {
           logger.info("Removing Sonos system: " + device.getDetails().getFriendlyName());
-          sonosWidgetProvider.notifyChange(SonosService.this);
+          sonosWidgetProvider.notifyChange(SonosService.this, Change.SONOS_REMOVED);
         }
       }
 
