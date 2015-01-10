@@ -113,12 +113,13 @@ public class SonosWidgetProvider extends AppWidgetProvider {
     final Resources res = service.getResources();
     final RemoteViews views = new RemoteViews(service.getPackageName(), R.layout.sonos_widget);
 
-    logger.finer("Setting status text to: " + service.getStatus());
+    logger.finer("Setting status text");
     views.setTextViewText(R.id.info_area, service.getStatus());
 
     if (service.isMuted()) {
       views.setViewVisibility(R.id.control_pause_temporarily, View.GONE);
       views.setViewVisibility(R.id.control_pause_temporarily_deactivated, View.VISIBLE);
+      views.setTextViewText(R.id.control_pause_temporarily_deactivated, Integer.toString(service.getSecondsUntilUnmute()));
 
     } else {
       views.setViewVisibility(R.id.control_pause_temporarily, View.VISIBLE);
@@ -137,6 +138,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
     intent.setComponent(new ComponentName(context, SonosService.class));
     PendingIntent pendingIntent = PendingIntent.getService(context, 0 /* no requestCode */, intent, 0 /* no flags */);
     views.setOnClickPendingIntent(R.id.control_pause_temporarily, pendingIntent);
+    views.setOnClickPendingIntent(R.id.control_pause_temporarily_deactivated, pendingIntent);
   }
 
 }

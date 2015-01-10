@@ -55,9 +55,10 @@ public class SonosService extends Service {
   private boolean wifiConnected = false;
 
   private ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(2);
-  private ScheduledFuture<?> future;
+  private ScheduledFuture<?> tickerFuture;
+  private ScheduledFuture<?> unmuteFuture;
 
-  private long muteLength = 30 * 1000L;
+  private long muteLength = 10 * 1000L;
   private long unmuteTime ;
 
 
@@ -160,28 +161,49 @@ public class SonosService extends Service {
       logger.fine("Doing muting stuff");
 
       synchronized (previousMuteStates) {
+
         if (previousMuteStates.isEmpty()) {
+          logger.info("Not currently muted. Muting...");
+
+          // Capture the current mute state of all Sonos systems, so we can
+          // restore it when we unmute.
+
           for (Sonos sonos : sonoses.values()) {
             boolean muted = sonos.isMuted();
             logger.info("Muted state of " + sonos.getName() + " is " + muted);
             previousMuteStates.put(sonos, muted);
           }
 
+          // Mute all Sonos systems.
+
           for (Sonos sonos : sonoses.values()) {
             logger.info("Setting muted on " + sonos.getName());
             sonos.mute(true);
           }
 
-          unmuteTime = System.currentTimeMillis() + muteLength;
-          logger.info("unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
-          executor.schedule(new Unmute(), muteLength, TimeUnit.MILLISECONDS);
-          future = executor.scheduleAtFixedRate(new UpdateUI(), 1000L, 1000L, TimeUnit.MILLISECONDS);
+          // Schedule a regular job to update the UI with time left until
+          // unmute.
 
-          sonosWidgetProvider.notifyChange(SonosService.this);
+          unmuteTime = System.currentTimeMillis() + muteLength;
+          tickerFuture = executor.scheduleAtFixedRate(new UpdateUI(), 1000L, 1000L, TimeUnit.MILLISECONDS);
 
         } else {
-          logger.info("Already muted. Doing nothing.");
+          logger.info("Already muted. Adding more mute.");
+
+          unmuteTime += muteLength;
+
+          // Cancel current unmute future event. A new one at the correct time
+          // will be added below.
+          unmuteFuture.cancel(false);
         }
+
+        // Set up a future job to unmute.
+        unmuteFuture = executor.schedule(new Unmute(), unmuteTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+
+        // Update the UI right now.
+        sonosWidgetProvider.notifyChange(SonosService.this);
+
+        logger.info("unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
       }
     }
   }
@@ -201,6 +223,11 @@ public class SonosService extends Service {
       logger.info("unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f));
       return Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " seconds to unmute...";
     }
+  }
+
+
+  public int getSecondsUntilUnmute() {
+    return Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f);
   }
 
 
@@ -225,15 +252,24 @@ public class SonosService extends Service {
 
     public void run() {
       synchronized (previousMuteStates) {
-        for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
-          Sonos sonos = entry.getKey();
-          boolean muted = entry.getValue();
-          logger.info("Restoring state of " + sonos.getName() + " to " + muted);
-          sonos.mute(muted);
+
+        // Need to check it is actually time to unmute, in case the user
+        // pressed the button again as we were called. Another delayed call
+        // to this runnable will already have been set up.
+
+        if (System.currentTimeMillis() < unmuteTime + 100L) {
+
+          for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
+            Sonos sonos = entry.getKey();
+            boolean muted = entry.getValue();
+            logger.info("Restoring state of " + sonos.getName() + " to " + muted);
+            sonos.mute(muted);
+          }
+
+          previousMuteStates.clear();
+          tickerFuture.cancel(false);
+          sonosWidgetProvider.notifyChange(SonosService.this);
         }
-        previousMuteStates.clear();
-        future.cancel(false);
-        sonosWidgetProvider.notifyChange(SonosService.this);
       }
     }
   }

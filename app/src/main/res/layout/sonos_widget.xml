@@ -22,26 +22,19 @@
         android:orientation="horizontal"
         android:background="@android:drawable/alert_dark_frame" >
 
-        <Button
+        <ImageButton
             android:id="@+id/control_pause_temporarily"
-            style="@android:style/TextAppearance.Medium"
-            android:layout_width="80dip"
-            android:layout_height="80dip"
-            android:layout_gravity="left"
-            android:layout_margin="4dip"
-            android:text="..." >
-        </Button>
+            android:layout_width="60dip"
+            android:layout_height="60dip"
+            android:src="@drawable/ic_mute">
+        </ImageButton>
 
         <Button
             android:id="@+id/control_pause_temporarily_deactivated"
-            style="@android:style/TextAppearance.Medium"
-            android:layout_width="80dip"
-            android:layout_height="80dip"
-            android:layout_gravity="left"
-            android:layout_margin="4dip"
-            android:visibility="gone"
-            android:enabled="false"
-            android:text="..." >
+            android:layout_width="60dip"
+            android:layout_height="60dip"
+            android:text="23"
+            android:visibility="gone">
         </Button>
 
     </LinearLayout>
