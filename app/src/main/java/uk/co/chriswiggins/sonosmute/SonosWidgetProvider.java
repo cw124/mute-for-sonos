@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -15,7 +16,7 @@ import java.util.logging.Logger;
 
 public class SonosWidgetProvider extends AppWidgetProvider {
 
-  private static Logger logger = Logger.getLogger(SonosWidgetProvider.class.getCanonicalName());
+  private static final String TAG = "SonosWidgetProvider";
 
   public static final String CMDAPPWIDGETUPDATE = "appwidgetupdate";
 
@@ -37,9 +38,9 @@ public class SonosWidgetProvider extends AppWidgetProvider {
 
   @Override
   public void onEnabled(Context context) {
-    logger.info("onEnabled");
+    Log.i(TAG, "onEnabled");
 
-    logger.info("Starting SonosService");
+    Log.i(TAG, "Starting SonosService");
     Intent intent = new Intent(context.getApplicationContext(), SonosService.class);
     context.startService(intent);
   }

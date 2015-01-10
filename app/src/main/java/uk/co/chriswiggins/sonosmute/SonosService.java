@@ -13,6 +13,7 @@ import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 import android.os.IBinder;
 import android.os.Parcelable;
+import android.util.Log;
 
 import org.teleal.cling.android.AndroidUpnpService;
 import org.teleal.cling.android.AndroidUpnpServiceImpl;
@@ -37,7 +38,7 @@ import java.util.logging.Logger;
 
 public class SonosService extends Service {
 
-  private static Logger logger = Logger.getLogger(SonosService.class.getCanonicalName());
+  private static final String TAG = "SonosService";
 
   public static final String SERVICECMD = "uk.co.chriswiggins.sonomutecommand";
   public static final String CMDNAME = "command";
@@ -72,19 +73,7 @@ public class SonosService extends Service {
 
 
   public SonosService() {
-    logger.info("Constructor. Instance = " + System.identityHashCode(this));
-
-    // Sort out logging.
-    Handler handler = new FixedAndroidHandler();
-    handler.setLevel(Level.ALL);
-    LoggingUtil.resetRootHandler(handler);
-    Logger.getLogger("").setLevel(Level.INFO);
-    Logger.getLogger("uk.co.chriswiggins.sonosmute").setLevel(Level.ALL);
-
-    logger.info("Logging initialised");
-    logger.fine("Fine level message");
-    logger.finest("Finest level message");
-    logger.info("Logging tests finished");
+    Log.i(TAG, "Constructor. Instance = " + System.identityHashCode(this));
   }
 
 
@@ -101,7 +90,7 @@ public class SonosService extends Service {
     // Bind to the UPnP service, creating it if necessary. By using bindService
     // (rather than startService) we get a reference to the service, sent back
     // via the ServiceConnection object.
-    logger.finest("Binding to AndroidUpnpService...");
+    Log.v(TAG, "Binding to AndroidUpnpService...");
     getApplicationContext().bindService(
             new Intent(this, AndroidUpnpServiceImpl.class),
             serviceConnection,
@@ -125,7 +114,7 @@ public class SonosService extends Service {
    */
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
-    logger.info("onStartCommand");
+    Log.i(TAG, "onStartCommand");
 
     if (intent != null) {
       processIntent(intent);
@@ -145,7 +134,7 @@ public class SonosService extends Service {
   private class SonosBroadcastReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-      logger.info("SonosBroadcastReceiver: onReceive");
+      Log.i(TAG, "SonosBroadcastReceiver: onReceive");
       processIntent(intent);
     }
   }
@@ -157,35 +146,35 @@ public class SonosService extends Service {
   private void processIntent(Intent intent) {
     String action = intent.getAction();
     String cmd = intent.getStringExtra("command");
-    logger.info("Process intent: action = " + action + ", cmd = " + cmd);
-    logger.info("Current state:" + getCurrentState());
+    Log.i(TAG, "Process intent: action = " + action + ", cmd = " + cmd);
+    Log.i(TAG, "Current state:" + getCurrentState());
 
     if (SonosWidgetProvider.CMDAPPWIDGETUPDATE.equals(cmd)) {
-      logger.fine("Doing wrap around thing");
+      Log.d(TAG, "Doing wrap around thing");
       int[] appWidgetIds = intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS);
       sonosWidgetProvider.performUpdate(SonosService.this, appWidgetIds);
 
     } else {
-      logger.fine("Doing muting stuff");
+      Log.d(TAG, "Doing muting stuff");
 
       synchronized (previousMuteStates) {
 
         if (previousMuteStates.isEmpty()) {
-          logger.info("Not currently muted. Muting...");
+          Log.i(TAG, "Not currently muted. Muting...");
 
           // Capture the current mute state of all Sonos systems, so we can
           // restore it when we unmute.
 
           for (Sonos sonos : sonoses.values()) {
             boolean muted = sonos.isMuted();
-            logger.info("Muted state of " + sonos.getName() + " is " + muted);
+            Log.i(TAG, "Muted state of " + sonos.getName() + " is " + muted);
             previousMuteStates.put(sonos, muted);
           }
 
           // Mute all Sonos systems.
 
           for (Sonos sonos : sonoses.values()) {
-            logger.info("Setting muted on " + sonos.getName());
+            Log.i(TAG, "Setting muted on " + sonos.getName());
             sonos.mute(true);
           }
 
@@ -196,7 +185,7 @@ public class SonosService extends Service {
           tickerFuture = executor.scheduleAtFixedRate(new UpdateUI(), 1000L, 1000L, TimeUnit.MILLISECONDS);
 
         } else {
-          logger.info("Already muted. Adding more mute.");
+          Log.i(TAG, "Already muted. Adding more mute.");
 
           unmuteTime += muteLength;
 
@@ -211,7 +200,7 @@ public class SonosService extends Service {
         // Update the UI right now.
         sonosWidgetProvider.notifyChange(SonosService.this, Change.MUTED);
 
-        logger.info("unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
+        Log.i(TAG, "unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
       }
     }
   }
@@ -271,7 +260,7 @@ public class SonosService extends Service {
     public void run() {
       synchronized (previousMuteStates) {
 
-        logger.info("Current state:" + getCurrentState());
+        Log.i(TAG, "Current state:" + getCurrentState());
 
         // Need to check it is actually time to unmute, in case the user
         // pressed the button again as we were called. Another delayed call
@@ -282,7 +271,7 @@ public class SonosService extends Service {
           for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
             Sonos sonos = entry.getKey();
             boolean muted = entry.getValue();
-            logger.info("Restoring state of " + sonos.getName() + " to " + muted);
+            Log.i(TAG, "Restoring state of " + sonos.getName() + " to " + muted);
             sonos.mute(muted);
           }
 
@@ -302,7 +291,7 @@ public class SonosService extends Service {
   private class WiFiBroadcastReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-      logger.finest("Got wi-fi intent: " + intent);
+      Log.v(TAG, "Got wi-fi intent: " + intent);
 
       Parcelable extra = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
 
@@ -312,12 +301,12 @@ public class SonosService extends Service {
         if (networkInfo.getType() == ConnectivityManager.TYPE_WIFI) {
 
           if (networkInfo.getState() == NetworkInfo.State.CONNECTED) {
-            logger.fine("Wi-fi connected.");
+            Log.d(TAG, "Wi-fi connected.");
             wifiConnected = true;
             sonosWidgetProvider.notifyChange(SonosService.this, Change.WIFI_CONNECTED);
 
           } else {
-            logger.fine("Wi-fi not connected.");
+            Log.d(TAG, "Wi-fi not connected.");
             wifiConnected = false;
             sonosWidgetProvider.notifyChange(SonosService.this, Change.WIFI_DISCONNECTED);
           }
@@ -336,7 +325,7 @@ public class SonosService extends Service {
 
     public void onServiceConnected(ComponentName className, IBinder service) {
 
-      logger.info("UPnP service connected. Will search for devices to try to find Sonos.");
+      Log.i(TAG, "UPnP service connected. Will search for devices to try to find Sonos.");
 
       upnpService = (AndroidUpnpService) service;
 
@@ -354,7 +343,7 @@ public class SonosService extends Service {
 
 
     public void onServiceDisconnected(ComponentName className) {
-      logger.info("UPnP disconnected. Clearing reference to Sonos.");
+      Log.i(TAG, "UPnP disconnected. Clearing reference to Sonos.");
       upnpService = null;
     }
   };
@@ -374,7 +363,7 @@ public class SonosService extends Service {
 
     @Override
     public void remoteDeviceDiscoveryFailed(Registry registry, final RemoteDevice device, final Exception ex) {
-      logger.info("Discovery failed of '" + device.getDisplayString() + "': "
+      Log.w(TAG, "Discovery failed of '" + device.getDisplayString() + "': "
               + (ex != null ? ex.toString() : "Couldn't retrieve device/service descriptors"));
       deviceRemoved(device);
     }
@@ -401,10 +390,10 @@ public class SonosService extends Service {
 
     public void deviceAdded(final Device device) {
       if (device.isFullyHydrated()) {
-        logger.fine("Found device: " + device.getIdentity().getUdn().getIdentifierString() + ": " + device.getDisplayString());
+        Log.d(TAG, "Found device: " + device.getIdentity().getUdn().getIdentifierString() + ": " + device.getDisplayString());
 
         if (device.getDetails().getFriendlyName().contains("Sonos")) {
-          logger.info("Found a Sonos system.");
+          Log.i(TAG, "Found a Sonos system.");
 
           Sonos sonos = new Sonos(device.getDetails().getFriendlyName(), new AndroidControlPointProvider(upnpService), (RemoteDevice) device);
 
@@ -416,12 +405,12 @@ public class SonosService extends Service {
     }
 
     public void deviceRemoved(final Device device) {
-      logger.info("Device removed: "
+      Log.i(TAG, "Device removed: "
               + (device.isFullyHydrated() ? device.getDisplayString() : device.getDisplayString() + " *"));
 
       if (device.isFullyHydrated()) {
         if (sonoses.remove(device.getIdentity().getUdn().getIdentifierString()) != null) {
-          logger.info("Removing Sonos system: " + device.getDetails().getFriendlyName());
+          Log.i(TAG, "Removing Sonos system: " + device.getDetails().getFriendlyName());
           sonosWidgetProvider.notifyChange(SonosService.this, Change.SONOS_REMOVED);
         }
       }

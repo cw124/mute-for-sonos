@@ -45,7 +45,7 @@ import android.util.Log;
  */
 public class Sonos {
 
-  private static Logger logger = Logger.getLogger(Sonos.class.getCanonicalName());
+  private static final String TAG = "Sonos";
 
   private String name;
   ControlPointProvider controlPointProvider;
@@ -68,43 +68,43 @@ public class Sonos {
 
       @Override
       public void established(GENASubscription sub) {
-        logger.fine("Subscription callback established (RenderingControl): " + sub.getSubscriptionId());
+        Log.d(TAG, "Subscription callback established (RenderingControl): " + sub.getSubscriptionId());
       }
 
       @Override
       protected void failed(GENASubscription subscription, UpnpResponse responseStatus, Exception exception, String defaultMsg) {
-        logger.warning("Failed: " + defaultMsg);
+        Log.w(TAG, "Failed: " + defaultMsg);
       }
 
       @Override
       public void ended(GENASubscription sub, CancelReason reason, UpnpResponse response) {
         assert reason == null;
-        logger.info("Ended");
+        Log.i(TAG, "Ended");
       }
 
       public void eventReceived(GENASubscription sub) {
 
-        logger.finer("Received an event from Sonos: " + sub.getCurrentSequence().getValue());
+        Log.d(TAG, "Received an event from Sonos: " + sub.getCurrentSequence().getValue());
 
         Map<String, StateVariableValue> values = sub.getCurrentValues();
 
-        logger.finest("Values: " + values);
+        Log.v(TAG, "Values: " + values);
 
         StateVariableValue lastChange = values.get("LastChange");
 
         if (lastChange == null) {
-          logger.finest("LastChange is null");
+          Log.v(TAG, "LastChange is null");
 
         } else {
-          logger.finest("LastChange is: " + lastChange.toString());
+          Log.v(TAG, "LastChange is: " + lastChange.toString());
           try {
             Map<String, StateVariableValue> stateMap = SonosXMLParser.getRcEntriesFromString(lastChange.toString());
 
-            logger.finer("Parse is: " + stateMap);
+            Log.d(TAG, "Parse is: " + stateMap);
 
             if (stateMap.containsKey("MuteMaster")) {
               muted = stateMap.get("MuteMaster").getValue().equals("1");
-              logger.fine("Got update event from Sonos to say muted is now set to " + muted);
+              Log.d(TAG, "Got update event from Sonos to say muted is now set to " + muted);
             }
 
           } catch (SAXException e) {
@@ -117,7 +117,7 @@ public class Sonos {
       }
 
       public void eventsMissed(GENASubscription sub, int numberOfMissedEvents) {
-        logger.info("Missed events: " + numberOfMissedEvents);
+        Log.i(TAG, "Missed events: " + numberOfMissedEvents);
       }
 
     };
@@ -157,7 +157,7 @@ public class Sonos {
     // a new callback on the same thread (more likely), we'll get a
     // concurrent modification exception).
 
-    logger.finest("Calling callbacks");
+    Log.v(TAG, "Calling callbacks");
 
     List<SonosCallback> callbackQueueCopy;
     synchronized (callbackQueue) {
@@ -186,7 +186,7 @@ public class Sonos {
 
 
   public void mute(boolean mute) {
-    logger.fine("Setting mute to " + mute);
+    Log.d(TAG, "Setting mute to " + mute);
 
     Service service = sonosDevice.findService(new UDAServiceId("RenderingControl"));
     Action action = service.getAction("SetMute");
@@ -204,12 +204,12 @@ public class Sonos {
       @Override
       public void success(ActionInvocation invocation) {
         assert invocation.getOutput().length == 0;
-        logger.finest("Successfully called Sonos action!");
+        Log.v(TAG, "Successfully called Sonos action!");
       }
 
       @Override
       public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
-        logger.info("Failed to call Sonos action: " + defaultMsg);
+        Log.i(TAG, "Failed to call Sonos action: " + defaultMsg);
       }
     });
   }
@@ -274,11 +274,11 @@ public class Sonos {
         @Override
         public void remoteDeviceAdded(Registry registry, RemoteDevice device) {
           // TODO: What's the proper way to determine this is the Sonos system?
-          logger.info("Found remote device: " + device.getDetails().getFriendlyName());
+          Log.i(TAG, "Found remote device: " + device.getDetails().getFriendlyName());
           if (device.getDetails().getFriendlyName().contains("Sonos")) {
             rd = device;
             synchronized (SonosDriver.this) {
-              logger.info("Notifying");
+              Log.i(TAG, "Notifying");
               SonosDriver.this.notifyAll();
             }
           }
@@ -289,7 +289,7 @@ public class Sonos {
       // Broadcast a search message for all devices
       upnpService.getControlPoint().search(new STAllHeader());
 
-      logger.info("Searching...");
+      Log.i(TAG, "Searching...");
       synchronized (this) {
         try {
           this.wait();
@@ -297,19 +297,19 @@ public class Sonos {
         }
       }
 
-      logger.info("Found!");
+      Log.i(TAG, "Found!");
 
       final Sonos sonos = new Sonos("Foo", new StandardControlPointProvider(upnpService), rd);
 
       sonos.addOneOffCallbackAfterChange(new SonosCallback() {
         public void callback(Sonos sonos) {
-          logger.info("Got initial setup");
+          Log.i(TAG, "Got initial setup");
           sonos.addOneOffCallbackAfterChange(new SonosCallback() {
             public void callback(Sonos sonos) {
-              logger.info("Got initial setup 2");
+              Log.i(TAG, "Got initial setup 2");
               sonos.addOneOffCallbackAfterChange(new SonosCallback() {
                 public void callback(Sonos sonos) {
-                  logger.info("Something changed!");
+                  Log.i(TAG, "Something changed!");
                 }
               });
             }
