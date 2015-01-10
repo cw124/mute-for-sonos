@@ -252,8 +252,6 @@ public class Sonos {
 
     LoggingUtil.resetRootHandler(consoleHandler);
 
-    LogUtils.setupLogging();
-
     // Change this to affect what our code logs.
     Logger.getLogger("").setLevel(Level.ALL);
 
