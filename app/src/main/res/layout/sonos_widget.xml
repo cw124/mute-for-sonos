@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_margin="8dip"
+    android:orientation="vertical"
+    android:background="@android:drawable/alert_dark_frame" >
+
+    <TextView
+        android:id="@+id/info_area"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Starting..." />
+
+    <LinearLayout
+        android:id="@+id/buttons"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="8dip"
+        android:orientation="horizontal"
+        android:background="@android:drawable/alert_dark_frame" >
+
+        <Button
+            android:id="@+id/control_pause_temporarily"
+            style="@android:style/TextAppearance.Medium"
+            android:layout_width="80dip"
+            android:layout_height="80dip"
+            android:layout_gravity="left"
+            android:layout_margin="4dip"
+            android:text="..." >
+        </Button>
+
+        <Button
+            android:id="@+id/control_pause_temporarily_deactivated"
+            style="@android:style/TextAppearance.Medium"
+            android:layout_width="80dip"
+            android:layout_height="80dip"
+            android:layout_gravity="left"
+            android:layout_margin="4dip"
+            android:visibility="gone"
+            android:enabled="false"
+            android:text="..." >
+        </Button>
+
+    </LinearLayout>
+
+</LinearLayout>
