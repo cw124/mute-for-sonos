@@ -16,22 +16,8 @@ public class SonosWidgetProvider extends AppWidgetProvider {
 
   private static final String TAG = "SonosWidgetProvider";
 
-  public static final String CMDAPPWIDGETUPDATE = "appwidgetupdate";
-
-
   static final ComponentName THIS_APPWIDGET = new ComponentName("uk.co.chriswiggins.sonosmute",
                   "uk.co.chriswiggins.sonosmute.SonosWidgetProvider");
-
-
-  private static SonosWidgetProvider instance;
-
-
-  static synchronized SonosWidgetProvider getInstance() {
-    if (instance == null) {
-      instance = new SonosWidgetProvider();
-    }
-    return instance;
-  }
 
 
   @Override
@@ -47,17 +33,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
     defaultAppWidget(context, appWidgetIds);
 
     Log.i(TAG, "Starting SonosService");
-    Intent intent = new Intent(context.getApplicationContext(), SonosService.class);
-    context.startService(intent);
-
-    // Send broadcast intent to any running SonosService so it can
-    // wrap around with an immediate update.
-    Log.i(TAG, "Send startup intent to service...");
-    Intent updateIntent = new Intent(SonosService.SERVICECMD);
-    updateIntent.putExtra(SonosService.CMDNAME, SonosWidgetProvider.CMDAPPWIDGETUPDATE);
-    updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds);
-    updateIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
-    context.sendBroadcast(updateIntent);
+    context.startService(new Intent(context.getApplicationContext(), SonosService.class));
   }
 
 
@@ -74,7 +50,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
   }
 
 
-  private void pushUpdate(Context context, int[] appWidgetIds, RemoteViews views) {
+  private static void pushUpdate(Context context, int[] appWidgetIds, RemoteViews views) {
     // Update specific list of appWidgetIds if given, otherwise default to all
     final AppWidgetManager gm = AppWidgetManager.getInstance(context);
     if (appWidgetIds != null) {
@@ -88,7 +64,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
   /**
    * Check against {@link AppWidgetManager} if there are any instances of this widget.
    */
-  private boolean hasInstances(Context context) {
+  private static boolean hasInstances(Context context) {
     AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
     int[] appWidgetIds = appWidgetManager.getAppWidgetIds(THIS_APPWIDGET);
     return (appWidgetIds.length > 0);
@@ -99,7 +75,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
    * Called by SonosService when something happens that might need the widget
    * to update (wi-fi connected/disconnected, a Sonos system found etc.)
    */
-  void notifyChange(SonosService service, SonosService.Change change) {
+  static void notifyChange(SonosService service) {
     if (hasInstances(service)) {
       performUpdate(service, null);
     }
@@ -109,7 +85,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
   /**
    * Update all active widget instances by pushing changes
    */
-  void performUpdate(SonosService service, int[] appWidgetIds) {
+  static void performUpdate(SonosService service, int[] appWidgetIds) {
     final Resources res = service.getResources();
     final RemoteViews views = new RemoteViews(service.getPackageName(), R.layout.sonos_widget);
 
@@ -142,7 +118,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
   }
 
 
-  private void linkButtons(Context context, RemoteViews views) {
+  private static void linkButtons(Context context, RemoteViews views) {
     Intent intent = new Intent(SonosService.PAUSETEMPORARILY_ACTION);
     intent.setComponent(new ComponentName(context, SonosService.class));
     PendingIntent pendingIntent = PendingIntent.getService(context, 0 /* no requestCode */, intent, 0 /* no flags */);

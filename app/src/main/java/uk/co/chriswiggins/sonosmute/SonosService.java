@@ -1,7 +1,6 @@
 package uk.co.chriswiggins.sonosmute;
 
 import android.app.Service;
-import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -36,35 +35,18 @@ public class SonosService extends Service {
 
   private static final String TAG = "SonosService";
 
-  public static final String SERVICECMD = "uk.co.chriswiggins.sonomutecommand";
-  public static final String CMDNAME = "command";
-  public static final String PLAYSTATE_CHANGED = "uk.co.chriswiggins.sonoscontrol.playstatechanged";
-  public static final String PAUSETEMPORARILY_ACTION = "uk.co.chrisiwggins.sonoscontrol.pausetemporarily";
-
-  /**
-   * Used to communicate what change has happened to the widget.
-   */
-  public static enum Change {
-    MUTED, UNMUTED, TICK, WIFI_CONNECTED, WIFI_DISCONNECTED, SONOS_ADDED, SONOS_REMOVED
-  }
+  public static final String PAUSETEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
+  private static final long MUTE_LENGTH = 10 * 1000L;
 
   private AndroidUpnpService upnpService;
-  private ServiceConnection serviceConnection = new SonosServiceConnection();
-  private BrowseRegistryListener registryListener = new BrowseRegistryListener();
-
-  private SonosWidgetProvider sonosWidgetProvider = SonosWidgetProvider.getInstance();
 
   private Map<String, Sonos> sonoses = new ConcurrentHashMap<String, Sonos>();
   private Map<Sonos, Boolean> previousMuteStates = new HashMap<Sonos, Boolean>();
   private boolean wifiConnected = false;
-
   private ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(2);
   private ScheduledFuture<?> tickerFuture;
   private ScheduledFuture<?> unmuteFuture;
-
-  private long muteLength = 10 * 1000L;
-  private long unmuteTime ;
-
+  private long unmuteTime;
 
 
 
@@ -72,6 +54,7 @@ public class SonosService extends Service {
   public IBinder onBind(Intent intent) {
     return null;
   }
+
 
 
   @Override
@@ -84,19 +67,15 @@ public class SonosService extends Service {
     Log.v(TAG, "Binding to AndroidUpnpService...");
     getApplicationContext().bindService(
             new Intent(this, AndroidUpnpServiceImpl.class),
-            serviceConnection,
+            new UpnpServiceConnection(),
             Context.BIND_AUTO_CREATE);
 
     // Register a broadcast receiver for finding out what's going on with wi-fi.
     registerReceiver(
             new WiFiBroadcastReceiver(),
             new IntentFilter("android.net.wifi.STATE_CHANGE"));
-
-    IntentFilter commandFilter = new IntentFilter();
-    commandFilter.addAction(SERVICECMD);
-    commandFilter.addAction(PAUSETEMPORARILY_ACTION);
-    registerReceiver(new SonosBroadcastReceiver(), commandFilter);
   }
+
 
 
   @Override
@@ -106,9 +85,9 @@ public class SonosService extends Service {
   }
 
 
+
   /**
-   * Where all the messages come in from people pressing buttons. Not sure
-   * why. See broadcast receiver below.
+   * Where all the messages come in from people pressing buttons.
    */
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
@@ -124,19 +103,6 @@ public class SonosService extends Service {
   }
 
 
-  /**
-   * In theory receives broadcasts from SonosWidgetProveder when buttons are
-   * clicked, but I don't think this ever actually gets called -- everything
-   * comes through onStartCommand for some reason.
-   */
-  private class SonosBroadcastReceiver extends BroadcastReceiver {
-    @Override
-    public void onReceive(Context context, Intent intent) {
-      Log.i(TAG, "SonosBroadcastReceiver: onReceive");
-      processIntent(intent);
-    }
-  }
-
 
   /**
    * Regardless of where it comes from, process the message.
@@ -145,14 +111,9 @@ public class SonosService extends Service {
     String action = intent.getAction();
     String cmd = intent.getStringExtra("command");
     Log.i(TAG, "Process intent: action = " + action + ", cmd = " + cmd);
-    Log.i(TAG, "Current state:" + getCurrentState());
+    Log.i(TAG, "Current state: " + getCurrentState());
 
-    if (SonosWidgetProvider.CMDAPPWIDGETUPDATE.equals(cmd)) {
-      Log.d(TAG, "Doing wrap around thing");
-      int[] appWidgetIds = intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS);
-      sonosWidgetProvider.performUpdate(SonosService.this, appWidgetIds);
-
-    } else if (SonosService.PAUSETEMPORARILY_ACTION.equals(action)) {
+    if (SonosService.PAUSETEMPORARILY_ACTION.equals(action)) {
       Log.d(TAG, "Doing muting stuff");
 
       synchronized (previousMuteStates) {
@@ -179,13 +140,13 @@ public class SonosService extends Service {
           // Schedule a regular job to update the UI with time left until
           // unmute.
 
-          unmuteTime = System.currentTimeMillis() + muteLength;
+          unmuteTime = System.currentTimeMillis() + MUTE_LENGTH;
           tickerFuture = executor.scheduleAtFixedRate(new UpdateUI(), 1000L, 1000L, TimeUnit.MILLISECONDS);
 
         } else {
           Log.i(TAG, "Already muted. Adding more mute.");
 
-          unmuteTime += muteLength;
+          unmuteTime += MUTE_LENGTH;
 
           // Cancel current unmute future event. A new one at the correct time
           // will be added below.
@@ -196,15 +157,13 @@ public class SonosService extends Service {
         unmuteFuture = executor.schedule(new Unmute(), unmuteTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
         // Update the UI right now.
-        sonosWidgetProvider.notifyChange(SonosService.this, Change.MUTED);
+        SonosWidgetProvider.notifyChange(SonosService.this);
 
         Log.i(TAG, "unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
       }
-
-    } else {
-      Log.d(TAG, "Unknown command/action, ignoring");
     }
   }
+
 
 
   /**
@@ -223,9 +182,11 @@ public class SonosService extends Service {
   }
 
 
+
   public boolean isWifiConnected() {
     return wifiConnected;
   }
+
 
 
   public int getSecondsUntilUnmute() {
@@ -245,10 +206,12 @@ public class SonosService extends Service {
   }
 
 
-
+  /**
+   * Runs every second to update the UI.
+   */
   class UpdateUI implements Runnable {
     public void run() {
-      sonosWidgetProvider.notifyChange(SonosService.this, Change.TICK);
+      SonosWidgetProvider.notifyChange(SonosService.this);
     }
   }
 
@@ -261,7 +224,7 @@ public class SonosService extends Service {
     public void run() {
       synchronized (previousMuteStates) {
 
-        Log.i(TAG, "Current state:" + getCurrentState());
+        Log.i(TAG, "Current state: " + getCurrentState());
 
         // Need to check it is actually time to unmute, in case the user
         // pressed the button again as we were called. Another delayed call
@@ -278,7 +241,7 @@ public class SonosService extends Service {
 
           previousMuteStates.clear();
           tickerFuture.cancel(false);
-          sonosWidgetProvider.notifyChange(SonosService.this, Change.UNMUTED);
+          SonosWidgetProvider.notifyChange(SonosService.this);
         }
       }
     }
@@ -304,12 +267,12 @@ public class SonosService extends Service {
           if (networkInfo.getState() == NetworkInfo.State.CONNECTED) {
             Log.d(TAG, "Wi-fi connected.");
             wifiConnected = true;
-            sonosWidgetProvider.notifyChange(SonosService.this, Change.WIFI_CONNECTED);
+            SonosWidgetProvider.notifyChange(SonosService.this);
 
           } else {
             Log.d(TAG, "Wi-fi not connected.");
             wifiConnected = false;
-            sonosWidgetProvider.notifyChange(SonosService.this, Change.WIFI_DISCONNECTED);
+            SonosWidgetProvider.notifyChange(SonosService.this);
           }
         }
       }
@@ -322,7 +285,9 @@ public class SonosService extends Service {
    * Our connection to the UPnP service. Listens for devices on the network as
    * they come and go and keeps track of them.
    */
-  private class SonosServiceConnection implements ServiceConnection {
+  private class UpnpServiceConnection implements ServiceConnection {
+
+    private BrowseRegistryListener registryListener = new BrowseRegistryListener();
 
     public void onServiceConnected(ComponentName className, IBinder service) {
 
@@ -366,6 +331,14 @@ public class SonosService extends Service {
     public void remoteDeviceDiscoveryFailed(Registry registry, final RemoteDevice device, final Exception ex) {
       Log.w(TAG, "Discovery failed of '" + device.getDisplayString() + "': "
               + (ex != null ? ex.toString() : "Couldn't retrieve device/service descriptors"));
+
+      Log.w(TAG, "Friendly name: " + device.getDetails().getFriendlyName());
+      Log.w(TAG, "Hydrated: " + device.isFullyHydrated());
+
+      if (device.getDetails().getFriendlyName().contains("Sonos")) {
+        Log.w(TAG, "Failed discovery was of a Sonos system.");
+      }
+
       deviceRemoved(device);
     }
 
@@ -400,7 +373,7 @@ public class SonosService extends Service {
 
           sonoses.put(device.getIdentity().getUdn().getIdentifierString(), sonos);
 
-          sonosWidgetProvider.notifyChange(SonosService.this, Change.SONOS_ADDED);
+          SonosWidgetProvider.notifyChange(SonosService.this);
         }
       }
     }
@@ -412,7 +385,7 @@ public class SonosService extends Service {
       if (device.isFullyHydrated()) {
         if (sonoses.remove(device.getIdentity().getUdn().getIdentifierString()) != null) {
           Log.i(TAG, "Removing Sonos system: " + device.getDetails().getFriendlyName());
-          sonosWidgetProvider.notifyChange(SonosService.this, Change.SONOS_REMOVED);
+          SonosWidgetProvider.notifyChange(SonosService.this);
         }
       }
 
