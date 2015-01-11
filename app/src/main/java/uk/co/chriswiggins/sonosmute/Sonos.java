@@ -29,7 +29,6 @@ import org.teleal.cling.model.meta.RemoteService;
 import org.teleal.cling.model.meta.Service;
 import org.teleal.cling.model.state.StateVariableValue;
 import org.teleal.cling.model.types.UDAServiceId;
-import org.teleal.cling.model.types.UnsignedIntegerFourBytes;
 import org.teleal.cling.registry.DefaultRegistryListener;
 import org.teleal.cling.registry.Registry;
 import org.teleal.common.logging.LoggingUtil;

@@ -22,7 +22,6 @@ import org.teleal.cling.model.meta.LocalDevice;
 import org.teleal.cling.model.meta.RemoteDevice;
 import org.teleal.cling.registry.DefaultRegistryListener;
 import org.teleal.cling.registry.Registry;
-import org.teleal.common.logging.LoggingUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,9 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 
 
@@ -72,11 +68,6 @@ public class SonosService extends Service {
 
 
 
-  public SonosService() {
-    Log.i(TAG, "Constructor. Instance = " + System.identityHashCode(this));
-  }
-
-
   @Override
   public IBinder onBind(Intent intent) {
     return null;
@@ -105,6 +96,13 @@ public class SonosService extends Service {
     commandFilter.addAction(SERVICECMD);
     commandFilter.addAction(PAUSETEMPORARILY_ACTION);
     registerReceiver(new SonosBroadcastReceiver(), commandFilter);
+  }
+
+
+  @Override
+  public void onDestroy() {
+    Log.i(TAG, "onDestroy");
+    super.onDestroy();
   }
 
 
@@ -154,7 +152,7 @@ public class SonosService extends Service {
       int[] appWidgetIds = intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS);
       sonosWidgetProvider.performUpdate(SonosService.this, appWidgetIds);
 
-    } else {
+    } else if (SonosService.PAUSETEMPORARILY_ACTION.equals(action)) {
       Log.d(TAG, "Doing muting stuff");
 
       synchronized (previousMuteStates) {
@@ -202,6 +200,9 @@ public class SonosService extends Service {
 
         Log.i(TAG, "unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
       }
+
+    } else {
+      Log.d(TAG, "Unknown command/action, ignoring");
     }
   }
 

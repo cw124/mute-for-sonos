@@ -11,8 +11,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
-import java.util.logging.Logger;
-
 
 public class SonosWidgetProvider extends AppWidgetProvider {
 
@@ -39,19 +37,22 @@ public class SonosWidgetProvider extends AppWidgetProvider {
   @Override
   public void onEnabled(Context context) {
     Log.i(TAG, "onEnabled");
-
-    Log.i(TAG, "Starting SonosService");
-    Intent intent = new Intent(context.getApplicationContext(), SonosService.class);
-    context.startService(intent);
   }
 
 
   @Override
   public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
+    Log.i(TAG, "onUpdate");
+
     defaultAppWidget(context, appWidgetIds);
+
+    Log.i(TAG, "Starting SonosService");
+    Intent intent = new Intent(context.getApplicationContext(), SonosService.class);
+    context.startService(intent);
 
     // Send broadcast intent to any running SonosService so it can
     // wrap around with an immediate update.
+    Log.i(TAG, "Send startup intent to service...");
     Intent updateIntent = new Intent(SonosService.SERVICECMD);
     updateIntent.putExtra(SonosService.CMDNAME, SonosWidgetProvider.CMDAPPWIDGETUPDATE);
     updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds);
