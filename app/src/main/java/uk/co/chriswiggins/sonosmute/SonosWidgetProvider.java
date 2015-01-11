@@ -96,11 +96,17 @@ public class SonosWidgetProvider extends AppWidgetProvider {
       views.setViewVisibility(R.id.control_count, View.GONE);
 
     } else if (service.isMuted()) {
+      int secondsUntilUnmute = service.getSecondsUntilUnmute();
+      StringBuilder timeUntilUnmute = new StringBuilder();
+      timeUntilUnmute.append(secondsUntilUnmute / 60);
+      timeUntilUnmute.append(':');
+      timeUntilUnmute.append(String.format("%02d", secondsUntilUnmute % 60));
+
       views.setViewVisibility(R.id.control_disabled, View.GONE);
       views.setViewVisibility(R.id.control_pause, View.GONE);
       views.setViewVisibility(R.id.control_muted, View.VISIBLE);
       views.setViewVisibility(R.id.control_count, View.VISIBLE);
-      views.setTextViewText(R.id.control_muted, Integer.toString(service.getSecondsUntilUnmute()));
+      views.setTextViewText(R.id.control_muted, timeUntilUnmute);
       views.setTextViewText(R.id.control_count, Integer.toString(service.getNumKnownSonosSystems()));
 
     } else {

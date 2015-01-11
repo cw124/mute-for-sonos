@@ -37,6 +37,7 @@ public class SonosService extends Service {
 
   public static final String PAUSETEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
   private static final long MUTE_LENGTH = 10 * 1000L;
+  private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L;
 
   private AndroidUpnpService upnpService;
 
@@ -146,7 +147,7 @@ public class SonosService extends Service {
         } else {
           Log.i(TAG, "Already muted. Adding more mute.");
 
-          unmuteTime += MUTE_LENGTH;
+          unmuteTime = Math.min(unmuteTime + MUTE_LENGTH, System.currentTimeMillis() + MAX_MUTE_LENGTH);
 
           // Cancel current unmute future event. A new one at the correct time
           // will be added below.
