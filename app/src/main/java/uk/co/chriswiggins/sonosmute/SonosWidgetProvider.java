@@ -27,6 +27,13 @@ public class SonosWidgetProvider extends AppWidgetProvider {
 
 
   @Override
+  public void onDisabled(Context context) {
+    Log.i(TAG, "onDisabled");
+    context.stopService(new Intent(context.getApplicationContext(), SonosService.class));
+  }
+
+
+  @Override
   public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
     Log.i(TAG, "onUpdate");
 

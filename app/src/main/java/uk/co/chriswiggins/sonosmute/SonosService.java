@@ -82,6 +82,12 @@ public class SonosService extends Service {
   @Override
   public void onDestroy() {
     Log.i(TAG, "onDestroy");
+
+    // Stop any future jobs that are scheduled to run.
+    tickerFuture.cancel(false);
+    unmuteFuture.cancel(false);
+    executor.shutdown();
+
     super.onDestroy();
   }
 
@@ -157,12 +163,13 @@ public class SonosService extends Service {
         // Set up a future job to unmute.
         unmuteFuture = executor.schedule(new Unmute(), unmuteTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
-        // Update the UI right now.
-        SonosWidgetProvider.notifyChange(SonosService.this);
-
         Log.i(TAG, "unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
       }
     }
+
+    // Regardless of the intent, update the UI. This could be a 2nd (or more)
+    // widget being added, so it needs a wrap around call to get it up to date.
+    SonosWidgetProvider.notifyChange(SonosService.this);
   }
 
 
@@ -338,6 +345,7 @@ public class SonosService extends Service {
 
       if (device.getDetails().getFriendlyName().contains("Sonos")) {
         Log.w(TAG, "Failed discovery was of a Sonos system.");
+        // This happened! TODO: retry later.
       }
 
       deviceRemoved(device);
