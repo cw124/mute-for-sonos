@@ -2,50 +2,98 @@
 
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="fill_parent"
-    android:layout_height="fill_parent">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#00000000">
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:id="@+id/layout"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentLeft="true"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_margin="2dip">
 
-        <ImageButton
-            android:id="@+id/control_disabled"
-            android:layout_width="60dip"
-            android:layout_height="60dip"
-            android:src="@drawable/ic_mute_disabled"
-            android:clickable="false"
-            android:visibility="gone">
-        </ImageButton>
+    <!--
+    Common background for all states of the widget.
+    -->
 
-        <ImageButton
-            android:id="@+id/control_pause"
-            android:layout_width="60dip"
-            android:layout_height="60dip"
-            android:src="@drawable/ic_mute">
-        </ImageButton>
+    <ImageButton
+        android:id="@+id/control_main"
+        android:layout_width="48dip"
+        android:layout_height="48dip"
+        android:layout_centerInParent="true"
+        android:src="@drawable/ic_background"
+        android:background="#00000000">
+    </ImageButton>
 
-        <Button
-            android:id="@+id/control_muted"
-            android:layout_width="60dip"
-            android:layout_height="60dip"
-            android:text="23"
-            android:visibility="gone">
-        </Button>
 
-    </LinearLayout>
+    <!--
+    Three alternative states (unable to mute because no wi-fi, ready and
+    waiting to mute, and counting down until unmute) that are hidden and
+    revealed as appropriate.
+    -->
+
+    <ImageView
+        android:id="@+id/overlay_disabled"
+        android:layout_width="48dip"
+        android:layout_height="48dip"
+        android:layout_centerInParent="true"
+        android:src="@drawable/ic_mute_disabled"
+        android:clickable="false"
+        android:background="#00000000"
+        android:visibility="gone">
+    </ImageView>
+
+    <ImageView
+        android:id="@+id/overlay_pause"
+        android:layout_width="48dip"
+        android:layout_height="48dip"
+        android:layout_centerInParent="true"
+        android:src="@drawable/ic_mute"
+        android:background="#00000000">
+    </ImageView>
 
     <TextView
-        android:id="@+id/control_count"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentRight="false"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="8dip"
-        android:text="..." />
+        android:id="@+id/overlay_muted"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true"
+        android:text="1:23"
+        android:textColor="#fff"
+        android:textSize="18sp"
+        android:gravity="center"
+        android:visibility="gone">
+    </TextView>
+
+
+    <!--
+    The little bubble on the side that shows the number of Sonos systems
+    found.
+    -->
+
+    <RelativeLayout
+        android:layout_width="56dip"
+        android:layout_height="56dip"
+        android:layout_centerInParent="true">
+
+        <RelativeLayout
+            android:layout_width="16dip"
+            android:layout_height="16dip"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentTop="true">
+
+            <ImageView
+                android:layout_width="16dip"
+                android:layout_height="16dip"
+                android:layout_centerInParent="true"
+                android:src="@drawable/ic_blob"
+                android:background="#00000000">
+            </ImageView>
+
+            <TextView
+                android:id="@+id/control_count"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_centerInParent="true"
+                android:gravity="center"
+                android:text="3" />
+
+        </RelativeLayout>
+
+    </RelativeLayout>
 
 </RelativeLayout>

@@ -10,9 +10,11 @@ import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.Parcelable;
 import android.util.Log;
+import android.widget.Toast;
 
 import org.teleal.cling.android.AndroidUpnpService;
 import org.teleal.cling.android.AndroidUpnpServiceImpl;
@@ -38,7 +40,9 @@ public class SonosService extends Service {
   public static final String PAUSETEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
   private static final long MUTE_LENGTH = 10 * 1000L;
   private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L;
+  private static final long DEFAULT_RETRY_DISCOVERY_DELAY = 10 * 1000L;
 
+  private Handler handler;
   private AndroidUpnpService upnpService;
 
   private Map<String, Sonos> sonoses = new ConcurrentHashMap<String, Sonos>();
@@ -48,6 +52,10 @@ public class SonosService extends Service {
   private ScheduledFuture<?> tickerFuture;
   private ScheduledFuture<?> unmuteFuture;
   private long unmuteTime;
+  private long retryDiscoveryDelay = DEFAULT_RETRY_DISCOVERY_DELAY;
+  private Object retryDiscovery = new Object();
+  private boolean retryScheduled = false;
+  private long lastRetryStart = 0L;
 
 
 
@@ -61,6 +69,8 @@ public class SonosService extends Service {
   @Override
   public void onCreate() {
     super.onCreate();
+
+    handler = new Handler();
 
     // Bind to the UPnP service, creating it if necessary. By using bindService
     // (rather than startService) we get a reference to the service, sent back
@@ -83,10 +93,8 @@ public class SonosService extends Service {
   public void onDestroy() {
     Log.i(TAG, "onDestroy");
 
-    // Stop any future jobs that are scheduled to run.
-    tickerFuture.cancel(false);
-    unmuteFuture.cancel(false);
-    executor.shutdown();
+    // Stop any future jobs that are scheduled to run, and shutdown the executor.
+    executor.shutdownNow();
 
     super.onDestroy();
   }
@@ -125,7 +133,16 @@ public class SonosService extends Service {
 
       synchronized (previousMuteStates) {
 
-        if (previousMuteStates.isEmpty()) {
+        if (!wifiConnected) {
+          Log.i(TAG, "No wi-fi, inform user...");
+          handler.post(new Runnable() {
+            @Override
+            public void run() {
+              Toast.makeText(SonosService.this, "Not connected to wi-fi", Toast.LENGTH_SHORT).show();
+            }
+          });
+
+        } else if (previousMuteStates.isEmpty()) {
           Log.i(TAG, "Not currently muted. Muting...");
 
           // Capture the current mute state of all Sonos systems, so we can
@@ -256,6 +273,21 @@ public class SonosService extends Service {
   }
 
 
+  /**
+   * Runnable that will retry discovery of devices on the network. Used when
+   * Sonos discovery fails for whatever reason.
+   */
+  class RetryDeviceDiscovery implements Runnable {
+    public void run() {
+      synchronized (retryDiscovery) {
+        Log.i(TAG, "Searching again for devices after failure");
+        retryScheduled = false;
+        upnpService.getControlPoint().search();
+      }
+    }
+  }
+
+
 
   /**
    * BroadcaseReceiver for monitoring the status of the wi-fi connection.
@@ -345,7 +377,27 @@ public class SonosService extends Service {
 
       if (device.getDetails().getFriendlyName().contains("Sonos")) {
         Log.w(TAG, "Failed discovery was of a Sonos system.");
-        // This happened! TODO: retry later.
+
+        synchronized (retryDiscovery) {
+          if (retryScheduled) {
+            Log.i(TAG, "Retry already scheduled, will just wait for that one...");
+
+          } else {
+            Log.i(TAG, "Retry not currently scheduled, will schedule one");
+
+            retryScheduled = true;
+
+            if (System.currentTimeMillis() - lastRetryStart > 1000L * 60 * 60) {
+              Log.i(TAG, "Long time since last retry so assume this is a new failure. Reseting delay.");
+              retryDiscoveryDelay = DEFAULT_RETRY_DISCOVERY_DELAY;
+            }
+
+            Log.i(TAG, "Scheduling retry for " + retryDiscoveryDelay/1000 + " seconds' time");
+            executor.schedule(new RetryDeviceDiscovery(), retryDiscoveryDelay, TimeUnit.MILLISECONDS);
+
+            retryDiscoveryDelay *= 2;
+          }
+        }
       }
 
       deviceRemoved(device);

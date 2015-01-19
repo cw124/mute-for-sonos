@@ -97,9 +97,9 @@ public class SonosWidgetProvider extends AppWidgetProvider {
     final RemoteViews views = new RemoteViews(service.getPackageName(), R.layout.sonos_widget);
 
     if (!service.isWifiConnected()) {
-      views.setViewVisibility(R.id.control_disabled, View.VISIBLE);
-      views.setViewVisibility(R.id.control_pause, View.GONE);
-      views.setViewVisibility(R.id.control_muted, View.GONE);
+      views.setViewVisibility(R.id.overlay_disabled, View.VISIBLE);
+      views.setViewVisibility(R.id.overlay_pause, View.GONE);
+      views.setViewVisibility(R.id.overlay_muted, View.GONE);
       views.setViewVisibility(R.id.control_count, View.GONE);
 
     } else if (service.isMuted()) {
@@ -109,17 +109,17 @@ public class SonosWidgetProvider extends AppWidgetProvider {
       timeUntilUnmute.append(':');
       timeUntilUnmute.append(String.format("%02d", secondsUntilUnmute % 60));
 
-      views.setViewVisibility(R.id.control_disabled, View.GONE);
-      views.setViewVisibility(R.id.control_pause, View.GONE);
-      views.setViewVisibility(R.id.control_muted, View.VISIBLE);
+      views.setViewVisibility(R.id.overlay_disabled, View.GONE);
+      views.setViewVisibility(R.id.overlay_pause, View.GONE);
+      views.setViewVisibility(R.id.overlay_muted, View.VISIBLE);
       views.setViewVisibility(R.id.control_count, View.VISIBLE);
-      views.setTextViewText(R.id.control_muted, timeUntilUnmute);
+      views.setTextViewText(R.id.overlay_muted, timeUntilUnmute);
       views.setTextViewText(R.id.control_count, Integer.toString(service.getNumKnownSonosSystems()));
 
     } else {
-      views.setViewVisibility(R.id.control_disabled, View.GONE);
-      views.setViewVisibility(R.id.control_pause, View.VISIBLE);
-      views.setViewVisibility(R.id.control_muted, View.GONE);
+      views.setViewVisibility(R.id.overlay_disabled, View.GONE);
+      views.setViewVisibility(R.id.overlay_pause, View.VISIBLE);
+      views.setViewVisibility(R.id.overlay_muted, View.GONE);
       views.setViewVisibility(R.id.control_count, View.VISIBLE);
       views.setTextViewText(R.id.control_count, Integer.toString(service.getNumKnownSonosSystems()));
     }
@@ -135,8 +135,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
     Intent intent = new Intent(SonosService.PAUSETEMPORARILY_ACTION);
     intent.setComponent(new ComponentName(context, SonosService.class));
     PendingIntent pendingIntent = PendingIntent.getService(context, 0 /* no requestCode */, intent, 0 /* no flags */);
-    views.setOnClickPendingIntent(R.id.control_pause, pendingIntent);
-    views.setOnClickPendingIntent(R.id.control_muted, pendingIntent);
+    views.setOnClickPendingIntent(R.id.control_main, pendingIntent);
   }
 
 }
