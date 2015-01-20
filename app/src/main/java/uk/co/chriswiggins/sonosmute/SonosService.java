@@ -27,8 +27,11 @@ import org.teleal.cling.registry.Registry;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 
@@ -48,7 +51,8 @@ public class SonosService extends Service {
   private Map<String, Sonos> sonoses = new ConcurrentHashMap<String, Sonos>();
   private Map<Sonos, Boolean> previousMuteStates = new HashMap<Sonos, Boolean>();
   private boolean wifiConnected = false;
-  private ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(2);
+  private ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
+          2, new SonosThreadFactory(), new SonosRejectedExecutionHandler());
   private ScheduledFuture<?> tickerFuture;
   private ScheduledFuture<?> unmuteFuture;
   private long unmuteTime;
@@ -126,7 +130,7 @@ public class SonosService extends Service {
     String action = intent.getAction();
     String cmd = intent.getStringExtra("command");
     Log.i(TAG, "Process intent: action = " + action + ", cmd = " + cmd);
-    Log.i(TAG, "Current state: " + getCurrentState());
+    Log.i(TAG, "processIntent: Current state: " + getCurrentState());
 
     if (SonosService.PAUSETEMPORARILY_ACTION.equals(action)) {
       Log.d(TAG, "Doing muting stuff");
@@ -232,6 +236,39 @@ public class SonosService extends Service {
 
 
   /**
+   * Thread factory so we can log if there's uncaught exceptions.
+   * TODO: probably get rid of this. Add try/catch around other Runnables.
+   */
+  class SonosThreadFactory implements ThreadFactory {
+    @Override
+    public Thread newThread(Runnable r) {
+      Thread thread = new Thread(r);
+
+      thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+        @Override
+        public void uncaughtException(Thread thread, Throwable e) {
+          Log.e(TAG, "Uncaught exception from thread " + thread, e);
+        }
+      });
+
+      return thread;
+    }
+  }
+
+
+  /**
+   * Reject execution handler so we can see if anything can't run.
+   * TODO: probably get rid of this too, or at least research why it might
+   * happen.
+   */
+  class SonosRejectedExecutionHandler implements RejectedExecutionHandler {
+    @Override
+    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+      Log.e(TAG, "Could not schedule runnable: " + r.toString() + " (" + r.getClass().getCanonicalName() + ")");
+    }
+  }
+
+  /**
    * Runs every second to update the UI.
    */
   class UpdateUI implements Runnable {
@@ -249,25 +286,36 @@ public class SonosService extends Service {
     public void run() {
       synchronized (previousMuteStates) {
 
-        Log.i(TAG, "Current state: " + getCurrentState());
+        Log.i(TAG, "Unmute: current state: " + getCurrentState());
 
         // Need to check it is actually time to unmute, in case the user
         // pressed the button again as we were called. Another delayed call
         // to this runnable will already have been set up.
 
         if (System.currentTimeMillis() < unmuteTime + 100L) {
-
-          for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
-            Sonos sonos = entry.getKey();
-            boolean muted = entry.getValue();
-            Log.i(TAG, "Restoring state of " + sonos.getName() + " to " + muted);
-            sonos.mute(muted);
-          }
-
-          previousMuteStates.clear();
-          tickerFuture.cancel(false);
-          SonosWidgetProvider.notifyChange(SonosService.this);
+        } else {
+          Log.e(TAG, "Wouldn't have unmuted. Time = " + System.currentTimeMillis() + ". unmuteTime = " + unmuteTime);
         }
+
+        for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
+          Sonos sonos = entry.getKey();
+          boolean muted = entry.getValue();
+          Log.i(TAG, "Restoring state of " + sonos.getName() + " to " + muted);
+          sonos.mute(muted);
+        }
+
+        previousMuteStates.clear();
+        tickerFuture.cancel(false);
+        SonosWidgetProvider.notifyChange(SonosService.this);
+
+        // There's a race condition where the user presses the button again as
+        // this Runnable triggers. The main thread grabs the lock and we
+        // block. The main thread cancels the future (that's already started
+        // to run) and schedules a new one a bit further in the future. We'll
+        // then run regardless, so we'd better cancel that future extra run,
+        // if it exists.
+
+        unmuteFuture.cancel(false);
       }
     }
   }
