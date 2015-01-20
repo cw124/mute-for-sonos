@@ -146,6 +146,21 @@ public class SonosService extends Service {
             }
           });
 
+        } else if (sonoses.isEmpty() && previousMuteStates.isEmpty()) {
+          // Above condition also checks that we're not in the middle of a
+          // mute (which could happen if we mute things, then lose contact
+          // with all Sonos devices). In this case probably better to allow
+          // user to keep adding time and maybe the Sonos systems will come
+          // back before the unmute is needed.
+
+          Log.i(TAG, "Wi-fi connected, but no Sonoses found. Inform user...");
+          handler.post(new Runnable() {
+            @Override
+            public void run() {
+              Toast.makeText(SonosService.this, "No Sonos systems found", Toast.LENGTH_SHORT).show();
+            }
+          });
+
         } else if (previousMuteStates.isEmpty()) {
           Log.i(TAG, "Not currently muted. Muting...");
 
