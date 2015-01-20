@@ -101,6 +101,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
       views.setViewVisibility(R.id.overlay_pause, View.GONE);
       views.setViewVisibility(R.id.overlay_muted, View.GONE);
       views.setViewVisibility(R.id.control_count, View.GONE);
+      views.setViewVisibility(R.id.control_bubble, View.GONE);
 
     } else if (service.isMuted()) {
       int secondsUntilUnmute = service.getSecondsUntilUnmute();
@@ -113,6 +114,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
       views.setViewVisibility(R.id.overlay_pause, View.GONE);
       views.setViewVisibility(R.id.overlay_muted, View.VISIBLE);
       views.setViewVisibility(R.id.control_count, View.VISIBLE);
+      views.setViewVisibility(R.id.control_bubble, View.VISIBLE);
       views.setTextViewText(R.id.overlay_muted, timeUntilUnmute);
       views.setTextViewText(R.id.control_count, Integer.toString(service.getNumKnownSonosSystems()));
 
@@ -121,6 +123,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
       views.setViewVisibility(R.id.overlay_pause, View.VISIBLE);
       views.setViewVisibility(R.id.overlay_muted, View.GONE);
       views.setViewVisibility(R.id.control_count, View.VISIBLE);
+      views.setViewVisibility(R.id.control_bubble, View.VISIBLE);
       views.setTextViewText(R.id.control_count, Integer.toString(service.getNumKnownSonosSystems()));
     }
 

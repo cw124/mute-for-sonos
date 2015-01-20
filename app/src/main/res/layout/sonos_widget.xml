@@ -77,6 +77,7 @@
             android:layout_alignParentTop="true">
 
             <ImageView
+                android:id="@+id/control_bubble"
                 android:layout_width="16dip"
                 android:layout_height="16dip"
                 android:layout_centerInParent="true"
