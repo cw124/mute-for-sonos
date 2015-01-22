@@ -16,13 +16,14 @@ import android.os.Parcelable;
 import android.util.Log;
 import android.widget.Toast;
 
-import org.teleal.cling.android.AndroidUpnpService;
-import org.teleal.cling.android.AndroidUpnpServiceImpl;
-import org.teleal.cling.model.meta.Device;
-import org.teleal.cling.model.meta.LocalDevice;
-import org.teleal.cling.model.meta.RemoteDevice;
-import org.teleal.cling.registry.DefaultRegistryListener;
-import org.teleal.cling.registry.Registry;
+import org.fourthline.cling.android.AndroidUpnpService;
+import org.fourthline.cling.android.AndroidUpnpServiceImpl;
+import org.fourthline.cling.android.FixedAndroidLogHandler;
+import org.fourthline.cling.model.meta.Device;
+import org.fourthline.cling.model.meta.LocalDevice;
+import org.fourthline.cling.model.meta.RemoteDevice;
+import org.fourthline.cling.registry.DefaultRegistryListener;
+import org.fourthline.cling.registry.Registry;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,7 +34,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class SonosService extends Service {
@@ -75,6 +77,12 @@ public class SonosService extends Service {
     super.onCreate();
 
     handler = new Handler();
+
+    // Make Cling log as needed.
+    org.seamless.util.logging.LoggingUtil.resetRootHandler(
+      new FixedAndroidLogHandler()
+    );
+    Logger.getLogger("org.fourthline.cling").setLevel(Level.INFO);
 
     // Bind to the UPnP service, creating it if necessary. By using bindService
     // (rather than startService) we get a reference to the service, sent back

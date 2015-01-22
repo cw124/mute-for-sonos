@@ -14,24 +14,23 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
-import org.teleal.cling.UpnpService;
-import org.teleal.cling.UpnpServiceImpl;
-import org.teleal.cling.controlpoint.ActionCallback;
-import org.teleal.cling.controlpoint.SubscriptionCallback;
-import org.teleal.cling.model.action.ActionInvocation;
-import org.teleal.cling.model.gena.CancelReason;
-import org.teleal.cling.model.gena.GENASubscription;
-import org.teleal.cling.model.message.UpnpResponse;
-import org.teleal.cling.model.message.header.STAllHeader;
-import org.teleal.cling.model.meta.Action;
-import org.teleal.cling.model.meta.RemoteDevice;
-import org.teleal.cling.model.meta.RemoteService;
-import org.teleal.cling.model.meta.Service;
-import org.teleal.cling.model.state.StateVariableValue;
-import org.teleal.cling.model.types.UDAServiceId;
-import org.teleal.cling.registry.DefaultRegistryListener;
-import org.teleal.cling.registry.Registry;
-import org.teleal.common.logging.LoggingUtil;
+import org.fourthline.cling.UpnpService;
+import org.fourthline.cling.UpnpServiceImpl;
+import org.fourthline.cling.controlpoint.ActionCallback;
+import org.fourthline.cling.controlpoint.SubscriptionCallback;
+import org.fourthline.cling.model.action.ActionInvocation;
+import org.fourthline.cling.model.gena.CancelReason;
+import org.fourthline.cling.model.gena.GENASubscription;
+import org.fourthline.cling.model.message.UpnpResponse;
+import org.fourthline.cling.model.message.header.STAllHeader;
+import org.fourthline.cling.model.meta.Action;
+import org.fourthline.cling.model.meta.RemoteDevice;
+import org.fourthline.cling.model.meta.RemoteService;
+import org.fourthline.cling.model.meta.Service;
+import org.fourthline.cling.model.state.StateVariableValue;
+import org.fourthline.cling.model.types.UDAServiceId;
+import org.fourthline.cling.registry.DefaultRegistryListener;
+import org.fourthline.cling.registry.Registry;
 import org.xml.sax.SAXException;
 
 import android.util.Log;
@@ -249,7 +248,7 @@ public class Sonos {
 
     });
 
-    LoggingUtil.resetRootHandler(consoleHandler);
+    //LoggingUtil.resetRootHandler(consoleHandler);
 
     // Change this to affect what our code logs.
     Logger.getLogger("").setLevel(Level.ALL);

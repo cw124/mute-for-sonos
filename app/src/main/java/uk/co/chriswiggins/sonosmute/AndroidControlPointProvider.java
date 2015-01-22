@@ -1,7 +1,7 @@
 package uk.co.chriswiggins.sonosmute;
 
-import org.teleal.cling.android.AndroidUpnpService;
-import org.teleal.cling.controlpoint.ControlPoint;
+import org.fourthline.cling.android.AndroidUpnpService;
+import org.fourthline.cling.controlpoint.ControlPoint;
 
 
 public class AndroidControlPointProvider implements ControlPointProvider {

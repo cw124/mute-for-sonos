@@ -55,10 +55,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.teleal.cling.model.meta.StateVariable;
-import org.teleal.cling.model.meta.StateVariableTypeDetails;
-import org.teleal.cling.model.state.StateVariableValue;
-import org.teleal.cling.model.types.StringDatatype;
+import org.fourthline.cling.model.meta.StateVariable;
+import org.fourthline.cling.model.meta.StateVariableTypeDetails;
+import org.fourthline.cling.model.state.StateVariableValue;
+import org.fourthline.cling.model.types.StringDatatype;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
