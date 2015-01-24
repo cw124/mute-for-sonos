@@ -353,18 +353,32 @@ public class SonosService extends Service {
 
   /**
    * Runnable that will retry discovery of devices on the network. Used when
-   * Sonos discovery fails or when we purposely retry to make sure we
-   * definitely find things.
+   * Sonos discovery fails for whatever reason.
    */
-  class RetryDeviceDiscovery implements Runnable {
+  class RetryFailedDeviceDiscovery implements Runnable {
     public void run() {
       synchronized (retryDiscovery) {
-        Log.i(TAG, "Searching again for Sonos systems...");
+        Log.i(TAG, "Searching again for Sonos systems after failure...");
         retryScheduled = false;
 
         if (upnpService != null) {
           upnpService.getControlPoint().search(new UDADeviceTypeHeader(SONOS_DEVICE_TYPE));
         }
+      }
+    }
+  }
+
+
+  /**
+   * Runnable that will retry discovery of devices on the network. Used to
+   * search several times when wi-fi becomes connected so we can be sure to
+   * find everything.
+   */
+  class RetryDeviceDiscovery implements Runnable {
+    public void run() {
+      Log.i(TAG, "Searching again for Sonos systems...");
+      if (upnpService != null) {
+        upnpService.getControlPoint().search(new UDADeviceTypeHeader(SONOS_DEVICE_TYPE));
       }
     }
   }
@@ -482,7 +496,7 @@ public class SonosService extends Service {
             }
 
             Log.i(TAG, "Scheduling retry for " + retryDiscoveryDelay/1000 + " seconds' time");
-            executor.schedule(new RetryDeviceDiscovery(), retryDiscoveryDelay, TimeUnit.MILLISECONDS);
+            executor.schedule(new RetryFailedDeviceDiscovery(), retryDiscoveryDelay, TimeUnit.MILLISECONDS);
 
             retryDiscoveryDelay *= 2;
           }
@@ -499,16 +513,6 @@ public class SonosService extends Service {
 
     @Override
     public void remoteDeviceRemoved(Registry registry, RemoteDevice device) {
-      deviceRemoved(device);
-    }
-
-    @Override
-    public void localDeviceAdded(Registry registry, LocalDevice device) {
-      deviceAdded(device);
-    }
-
-    @Override
-    public void localDeviceRemoved(Registry registry, LocalDevice device) {
       deviceRemoved(device);
     }
 
