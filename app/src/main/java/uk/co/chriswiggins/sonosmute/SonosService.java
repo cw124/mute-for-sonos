@@ -19,12 +19,17 @@ import android.widget.Toast;
 import org.fourthline.cling.android.AndroidUpnpService;
 import org.fourthline.cling.android.AndroidUpnpServiceImpl;
 import org.fourthline.cling.android.FixedAndroidLogHandler;
+import org.fourthline.cling.model.message.header.UDADeviceTypeHeader;
 import org.fourthline.cling.model.meta.Device;
+import org.fourthline.cling.model.meta.DeviceIdentity;
 import org.fourthline.cling.model.meta.LocalDevice;
 import org.fourthline.cling.model.meta.RemoteDevice;
+import org.fourthline.cling.model.types.DeviceType;
+import org.fourthline.cling.model.types.UDADeviceType;
 import org.fourthline.cling.registry.DefaultRegistryListener;
 import org.fourthline.cling.registry.Registry;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,6 +47,8 @@ public class SonosService extends Service {
 
   private static final String TAG = "SonosService";
 
+  private static final DeviceType SONOS_DEVICE_TYPE = new UDADeviceType("ZonePlayer");
+
   public static final String PAUSETEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
   private static final long MUTE_LENGTH = 10 * 1000L;
   private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L;
@@ -50,7 +57,7 @@ public class SonosService extends Service {
   private Handler handler;
   private AndroidUpnpService upnpService;
 
-  private Map<String, Sonos> sonoses = new ConcurrentHashMap<String, Sonos>();
+  private Map<DeviceIdentity, Sonos> sonoses = new ConcurrentHashMap<DeviceIdentity, Sonos>();
   private Map<Sonos, Boolean> previousMuteStates = new HashMap<Sonos, Boolean>();
   private boolean wifiConnected = false;
   private ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
@@ -170,7 +177,7 @@ public class SonosService extends Service {
           });
 
         } else if (previousMuteStates.isEmpty()) {
-          Log.i(TAG, "Not currently muted. Muting...");
+          Log.i(TAG, "Not currently 2muted. Muting...");
 
           // Capture the current mute state of all Sonos systems, so we can
           // restore it when we unmute.
@@ -353,7 +360,9 @@ public class SonosService extends Service {
       synchronized (retryDiscovery) {
         Log.i(TAG, "Searching again for devices after failure");
         retryScheduled = false;
-        upnpService.getControlPoint().search();
+        if (upnpService != null) {
+          upnpService.getControlPoint().search();
+        }
       }
     }
   }
@@ -402,25 +411,29 @@ public class SonosService extends Service {
 
     public void onServiceConnected(ComponentName className, IBinder service) {
 
-      Log.i(TAG, "UPnP service connected. Will search for devices to try to find Sonos.");
+      Log.i(TAG, "UPnP service connected.");
 
       upnpService = (AndroidUpnpService) service;
 
-      // Refresh the list with all known devices.
-      for (Device device : upnpService.getRegistry().getDevices()) {
+      // Get currently known devices.
+      Collection<Device> devices = upnpService.getRegistry().getDevices(SONOS_DEVICE_TYPE);
+      Log.d(TAG, "Registry already knows about " + devices.size() + " Sonos devices. Adding them.");
+      for (Device device : devices) {
         registryListener.deviceAdded(device);
       }
 
-      // Getting ready for future device advertisements.
+      // Listen for devices that appear in the future.
       upnpService.getRegistry().addListener(registryListener);
 
-      // Search asynchronously for all devices.
-      upnpService.getControlPoint().search();
+      // Search for Sonos devices not yet known about.
+      Log.d(TAG, "Searching for Sonos devices on the network...");
+      upnpService.getControlPoint().search(new UDADeviceTypeHeader(SONOS_DEVICE_TYPE));
     }
 
 
     public void onServiceDisconnected(ComponentName className) {
-      Log.i(TAG, "UPnP disconnected. Clearing reference to Sonos.");
+      Log.i(TAG, "UPnP disconnected. Clearing references to Sonos systems.");
+      sonoses.clear();
       upnpService = null;
     }
   };
@@ -434,11 +447,6 @@ public class SonosService extends Service {
   class BrowseRegistryListener extends DefaultRegistryListener {
 
     @Override
-    public void remoteDeviceDiscoveryStarted(Registry registry, RemoteDevice device) {
-      deviceAdded(device);
-    }
-
-    @Override
     public void remoteDeviceDiscoveryFailed(Registry registry, final RemoteDevice device, final Exception ex) {
       Log.w(TAG, "Discovery failed of '" + device.getDisplayString() + "': "
               + (ex != null ? ex.toString() : "Couldn't retrieve device/service descriptors"));
@@ -446,7 +454,7 @@ public class SonosService extends Service {
       Log.w(TAG, "Friendly name: " + device.getDetails().getFriendlyName());
       Log.w(TAG, "Hydrated: " + device.isFullyHydrated());
 
-      if (device.getDetails().getFriendlyName().contains("Sonos")) {
+      if (device.getType().equals(SONOS_DEVICE_TYPE)) {
         Log.w(TAG, "Failed discovery was of a Sonos system.");
 
         synchronized (retryDiscovery) {
@@ -496,16 +504,19 @@ public class SonosService extends Service {
 
     public void deviceAdded(final Device device) {
       if (device.isFullyHydrated()) {
-        Log.d(TAG, "Found device: " + device.getIdentity().getUdn().getIdentifierString() + ": " + device.getDisplayString());
+        Log.d(TAG, "Found device: " +
+                device.getIdentity().getUdn() + ": " +
+                device.getDisplayString());
 
-        if (device.getDetails().getFriendlyName().contains("Sonos")) {
+        if (device.getType().equals(SONOS_DEVICE_TYPE)) {
           Log.i(TAG, "Found a Sonos system.");
 
-          Sonos sonos = new Sonos(device.getDetails().getFriendlyName(), new AndroidControlPointProvider(upnpService), (RemoteDevice) device);
+          if (upnpService != null) {
+            Sonos sonos = new Sonos(device.getDetails().getFriendlyName(), new AndroidControlPointProvider(upnpService), (RemoteDevice) device);
+            sonoses.put(device.getIdentity(), sonos);
 
-          sonoses.put(device.getIdentity().getUdn().getIdentifierString(), sonos);
-
-          SonosWidgetProvider.notifyChange(SonosService.this);
+            SonosWidgetProvider.notifyChange(SonosService.this);
+          }
         }
       }
     }
@@ -514,11 +525,9 @@ public class SonosService extends Service {
       Log.i(TAG, "Device removed: "
               + (device.isFullyHydrated() ? device.getDisplayString() : device.getDisplayString() + " *"));
 
-      if (device.isFullyHydrated()) {
-        if (sonoses.remove(device.getIdentity().getUdn().getIdentifierString()) != null) {
-          Log.i(TAG, "Removing Sonos system: " + device.getDetails().getFriendlyName());
-          SonosWidgetProvider.notifyChange(SonosService.this);
-        }
+      if (sonoses.remove(device.getIdentity()) != null) {
+        Log.i(TAG, "Removed Sonos system: " + device.getDetails().getFriendlyName());
+        SonosWidgetProvider.notifyChange(SonosService.this);
       }
 
     }

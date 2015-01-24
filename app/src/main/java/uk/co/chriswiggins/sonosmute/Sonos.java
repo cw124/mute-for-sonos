@@ -1,39 +1,24 @@
 package uk.co.chriswiggins.sonosmute;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Formatter;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
+import android.util.Log;
 
-import org.fourthline.cling.UpnpService;
-import org.fourthline.cling.UpnpServiceImpl;
 import org.fourthline.cling.controlpoint.ActionCallback;
 import org.fourthline.cling.controlpoint.SubscriptionCallback;
 import org.fourthline.cling.model.action.ActionInvocation;
 import org.fourthline.cling.model.gena.CancelReason;
 import org.fourthline.cling.model.gena.GENASubscription;
 import org.fourthline.cling.model.message.UpnpResponse;
-import org.fourthline.cling.model.message.header.STAllHeader;
 import org.fourthline.cling.model.meta.Action;
 import org.fourthline.cling.model.meta.RemoteDevice;
 import org.fourthline.cling.model.meta.RemoteService;
 import org.fourthline.cling.model.meta.Service;
 import org.fourthline.cling.model.state.StateVariableValue;
 import org.fourthline.cling.model.types.UDAServiceId;
-import org.fourthline.cling.registry.DefaultRegistryListener;
-import org.fourthline.cling.registry.Registry;
 import org.xml.sax.SAXException;
 
-import android.util.Log;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -222,12 +207,12 @@ public class Sonos {
       return false;
     }
     final Sonos that = (Sonos) o;
-    return this.sonosDevice.getIdentity().getUdn().getIdentifierString().equals(that.sonosDevice.getIdentity().getUdn().getIdentifierString());
+    return this.sonosDevice.getIdentity().equals(that.sonosDevice.getIdentity());
   }
 
 
   @Override
   public int hashCode() {
-    return this.sonosDevice.getIdentity().getUdn().getIdentifierString().hashCode();
+    return this.sonosDevice.getIdentity().hashCode();
   }
 }
