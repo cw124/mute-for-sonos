@@ -177,7 +177,7 @@ public class SonosService extends Service {
           });
 
         } else if (previousMuteStates.isEmpty()) {
-          Log.i(TAG, "Not currently 2muted. Muting...");
+          Log.i(TAG, "Not currently muted. Muting...");
 
           // Capture the current mute state of all Sonos systems, so we can
           // restore it when we unmute.
@@ -353,15 +353,17 @@ public class SonosService extends Service {
 
   /**
    * Runnable that will retry discovery of devices on the network. Used when
-   * Sonos discovery fails for whatever reason.
+   * Sonos discovery fails or when we purposely retry to make sure we
+   * definitely find things.
    */
   class RetryDeviceDiscovery implements Runnable {
     public void run() {
       synchronized (retryDiscovery) {
-        Log.i(TAG, "Searching again for devices after failure");
+        Log.i(TAG, "Searching again for Sonos systems...");
         retryScheduled = false;
+
         if (upnpService != null) {
-          upnpService.getControlPoint().search();
+          upnpService.getControlPoint().search(new UDADeviceTypeHeader(SONOS_DEVICE_TYPE));
         }
       }
     }
@@ -388,6 +390,14 @@ public class SonosService extends Service {
             Log.d(TAG, "Wi-fi connected.");
             wifiConnected = true;
             SonosWidgetProvider.notifyChange(SonosService.this);
+
+            // HACK: Cling doesn't always seem to notice wi-fi has connected, or maybe it notices
+            // but discovery fails anyway for some reason. Schedule a few manual searches in a bit
+            // to try to ensure we find everything.
+            Log.d(TAG, "Scheduling a few of device searches to make sure we find everything...");
+            executor.schedule(new RetryDeviceDiscovery(), 2*1000L, TimeUnit.MILLISECONDS);
+            executor.schedule(new RetryDeviceDiscovery(), 5*1000L, TimeUnit.MILLISECONDS);
+            executor.schedule(new RetryDeviceDiscovery(), 10*1000L, TimeUnit.MILLISECONDS);
 
           } else {
             Log.d(TAG, "Wi-fi not connected.");
