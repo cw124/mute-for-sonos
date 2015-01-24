@@ -1,5 +1,7 @@
 package uk.co.chriswiggins.sonosmute;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -13,6 +15,7 @@ import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Parcelable;
+import android.os.SystemClock;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -22,7 +25,6 @@ import org.fourthline.cling.android.FixedAndroidLogHandler;
 import org.fourthline.cling.model.message.header.UDADeviceTypeHeader;
 import org.fourthline.cling.model.meta.Device;
 import org.fourthline.cling.model.meta.DeviceIdentity;
-import org.fourthline.cling.model.meta.LocalDevice;
 import org.fourthline.cling.model.meta.RemoteDevice;
 import org.fourthline.cling.model.types.DeviceType;
 import org.fourthline.cling.model.types.UDADeviceType;
@@ -50,6 +52,7 @@ public class SonosService extends Service {
   private static final DeviceType SONOS_DEVICE_TYPE = new UDADeviceType("ZonePlayer");
 
   public static final String PAUSETEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
+  public static final String UNMUTE_ACTION = "uk.co.chriswiggins.sonoscontrol.unmute";
   private static final long MUTE_LENGTH = 10 * 1000L;
   private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L;
   private static final long DEFAULT_RETRY_DISCOVERY_DELAY = 10 * 1000L;
@@ -57,14 +60,19 @@ public class SonosService extends Service {
   private Handler handler;
   private AndroidUpnpService upnpService;
 
+  private AlarmManager alarmManager;
+  private PendingIntent unmuteIntent;
+
   private Map<DeviceIdentity, Sonos> sonoses = new ConcurrentHashMap<DeviceIdentity, Sonos>();
   private Map<Sonos, Boolean> previousMuteStates = new HashMap<Sonos, Boolean>();
   private boolean wifiConnected = false;
+
   private ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
           2, new SonosThreadFactory(), new SonosRejectedExecutionHandler());
   private ScheduledFuture<?> tickerFuture;
-  private ScheduledFuture<?> unmuteFuture;
+
   private long unmuteTime;
+
   private long retryDiscoveryDelay = DEFAULT_RETRY_DISCOVERY_DELAY;
   private Object retryDiscovery = new Object();
   private boolean retryScheduled = false;
@@ -84,6 +92,7 @@ public class SonosService extends Service {
     super.onCreate();
 
     handler = new Handler();
+    alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
 
     // Make Cling log as needed.
     org.seamless.util.logging.LoggingUtil.resetRootHandler(
@@ -104,6 +113,8 @@ public class SonosService extends Service {
     registerReceiver(
             new WiFiBroadcastReceiver(),
             new IntentFilter("android.net.wifi.STATE_CHANGE"));
+
+    registerReceiver(new SonosBroadcastReceiver(), new IntentFilter(UNMUTE_ACTION));
   }
 
 
@@ -117,6 +128,7 @@ public class SonosService extends Service {
 
     super.onDestroy();
   }
+
 
 
 
@@ -134,6 +146,47 @@ public class SonosService extends Service {
     // Start sticky so we keep running (need to keep looking out for Sonos
     // systems on the network so we can access them quickly when asked to.
     return START_STICKY;
+  }
+
+
+  /**
+   * Receives broadcasts, specifically the alarm intent telling us it's time
+   * to unmute.
+   */
+  private class SonosBroadcastReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+      String action = intent.getAction();
+      Log.d(TAG, "onReceive. Action = " + action);
+
+      if (action.equals(UNMUTE_ACTION)) {
+        synchronized (previousMuteStates) {
+
+          Log.i(TAG, "Time = " + SystemClock.elapsedRealtime() + ". Unmute time = " + unmuteTime + ". Diff = " + (SystemClock.elapsedRealtime() - unmuteTime) / 1000.0f + "s");
+
+          for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
+            Sonos sonos = entry.getKey();
+            boolean muted = entry.getValue();
+            Log.i(TAG, "Restoring state of " + sonos.getName() + " to " + muted);
+            sonos.mute(muted);
+          }
+
+          previousMuteStates.clear();
+          tickerFuture.cancel(false);
+          SonosWidgetProvider.notifyChange(SonosService.this);
+
+          // There's a race condition where the user presses the button again as
+          // this alarm triggers. The main thread grabs the lock and we block.
+          // The main thread cancels the alarm (that's already started
+          // to run) and schedules a new one a bit further in the future. We'll
+          // then run regardless, so we'd better cancel that future extra run,
+          // if it exists.
+
+          alarmManager.cancel(unmuteIntent);
+        }
+      }
+
+    }
   }
 
 
@@ -198,23 +251,25 @@ public class SonosService extends Service {
           // Schedule a regular job to update the UI with time left until
           // unmute.
 
-          unmuteTime = System.currentTimeMillis() + MUTE_LENGTH;
+          unmuteTime = SystemClock.elapsedRealtime() + MUTE_LENGTH;
           tickerFuture = executor.scheduleAtFixedRate(new UpdateUI(), 1000L, 1000L, TimeUnit.MILLISECONDS);
 
         } else {
           Log.i(TAG, "Already muted. Adding more mute.");
 
-          unmuteTime = Math.min(unmuteTime + MUTE_LENGTH, System.currentTimeMillis() + MAX_MUTE_LENGTH);
+          unmuteTime = Math.min(unmuteTime + MUTE_LENGTH, SystemClock.elapsedRealtime() + MAX_MUTE_LENGTH);
 
           // Cancel current unmute future event. A new one at the correct time
           // will be added below.
-          unmuteFuture.cancel(false);
+          alarmManager.cancel(unmuteIntent);
         }
 
-        // Set up a future job to unmute.
-        unmuteFuture = executor.schedule(new Unmute(), unmuteTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+        // Set up an alarm to unmute (use an alarm so we are always woken up
+        // to unmute, even if the phone is in deep sleep).
+        unmuteIntent = PendingIntent.getBroadcast(this, 0, new Intent(UNMUTE_ACTION), 0);
+        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, unmuteTime, unmuteIntent);
 
-        Log.i(TAG, "unmute = " + unmuteTime + " current = " + System.currentTimeMillis() + " left = " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
+        Log.i(TAG, "unmute = " + unmuteTime + " current = " + SystemClock.elapsedRealtime() + " left = " + Math.round(Math.max(unmuteTime - SystemClock.elapsedRealtime(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
       }
     }
 
@@ -236,7 +291,7 @@ public class SonosService extends Service {
     } else if (previousMuteStates.isEmpty()) {
       return "Found " + sonoses.size() + " Sonos systems";
     } else {
-      return "Muted. Seconds until unmute: " + Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f);
+      return "Muted. Seconds until unmute: " + Math.round(Math.max(unmuteTime - SystemClock.elapsedRealtime(), 0L) / 1000.0f);
     }
   }
 
@@ -249,7 +304,7 @@ public class SonosService extends Service {
 
 
   public int getSecondsUntilUnmute() {
-    return Math.round(Math.max(unmuteTime - System.currentTimeMillis(), 0L) / 1000.0f);
+    return Math.round(Math.max(unmuteTime - SystemClock.elapsedRealtime(), 0L) / 1000.0f);
   }
 
 
@@ -304,49 +359,6 @@ public class SonosService extends Service {
   class UpdateUI implements Runnable {
     public void run() {
       SonosWidgetProvider.notifyChange(SonosService.this);
-    }
-  }
-
-
-  /**
-   * Runnable that will unmute the Sonos systems after a delay.
-   */
-  class Unmute implements Runnable {
-
-    public void run() {
-      synchronized (previousMuteStates) {
-
-        Log.i(TAG, "Unmute: current state: " + getCurrentState());
-
-        // Need to check it is actually time to unmute, in case the user
-        // pressed the button again as we were called. Another delayed call
-        // to this runnable will already have been set up.
-
-        if (System.currentTimeMillis() < unmuteTime + 100L) {
-        } else {
-          Log.e(TAG, "Wouldn't have unmuted. Time = " + System.currentTimeMillis() + ". unmuteTime = " + unmuteTime);
-        }
-
-        for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
-          Sonos sonos = entry.getKey();
-          boolean muted = entry.getValue();
-          Log.i(TAG, "Restoring state of " + sonos.getName() + " to " + muted);
-          sonos.mute(muted);
-        }
-
-        previousMuteStates.clear();
-        tickerFuture.cancel(false);
-        SonosWidgetProvider.notifyChange(SonosService.this);
-
-        // There's a race condition where the user presses the button again as
-        // this Runnable triggers. The main thread grabs the lock and we
-        // block. The main thread cancels the future (that's already started
-        // to run) and schedules a new one a bit further in the future. We'll
-        // then run regardless, so we'd better cancel that future extra run,
-        // if it exists.
-
-        unmuteFuture.cancel(false);
-      }
     }
   }
 
@@ -408,7 +420,7 @@ public class SonosService extends Service {
             // HACK: Cling doesn't always seem to notice wi-fi has connected, or maybe it notices
             // but discovery fails anyway for some reason. Schedule a few manual searches in a bit
             // to try to ensure we find everything.
-            Log.d(TAG, "Scheduling a few of device searches to make sure we find everything...");
+            Log.d(TAG, "Scheduling a few device searches to make sure we find everything...");
             executor.schedule(new RetryDeviceDiscovery(), 2*1000L, TimeUnit.MILLISECONDS);
             executor.schedule(new RetryDeviceDiscovery(), 5*1000L, TimeUnit.MILLISECONDS);
             executor.schedule(new RetryDeviceDiscovery(), 10*1000L, TimeUnit.MILLISECONDS);
@@ -490,7 +502,7 @@ public class SonosService extends Service {
 
             retryScheduled = true;
 
-            if (System.currentTimeMillis() - lastRetryStart > 1000L * 60 * 60) {
+            if (SystemClock.elapsedRealtime() - lastRetryStart > 1000L * 60 * 60) {
               Log.i(TAG, "Long time since last retry so assume this is a new failure. Reseting delay.");
               retryDiscoveryDelay = DEFAULT_RETRY_DISCOVERY_DELAY;
             }

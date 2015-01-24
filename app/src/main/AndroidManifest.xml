@@ -27,7 +27,12 @@
         <service
             android:name=".SonosService"
             android:enabled="true">
-         </service>
+
+            <intent-filter>
+                <action android:name="uk.co.chriswiggins.sonoscontrol.unmute" />
+            </intent-filter>
+
+        </service>
 
 
         <service android:name="org.fourthline.cling.android.AndroidUpnpServiceImpl"/>
