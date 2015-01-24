@@ -160,35 +160,42 @@ public class SonosService extends Service {
       Log.d(TAG, "onReceive. Action = " + action);
 
       if (action.equals(UNMUTE_ACTION)) {
-        synchronized (previousMuteStates) {
-
-          Log.i(TAG, "Time = " + SystemClock.elapsedRealtime() + ". Unmute time = " + unmuteTime + ". Diff = " + (SystemClock.elapsedRealtime() - unmuteTime) / 1000.0f + "s");
-
-          for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
-            Sonos sonos = entry.getKey();
-            boolean muted = entry.getValue();
-            Log.i(TAG, "Restoring state of " + sonos.getName() + " to " + muted);
-            sonos.mute(muted);
-          }
-
-          previousMuteStates.clear();
-          tickerFuture.cancel(false);
-          SonosWidgetProvider.notifyChange(SonosService.this);
-
-          // There's a race condition where the user presses the button again as
-          // this alarm triggers. The main thread grabs the lock and we block.
-          // The main thread cancels the alarm (that's already started
-          // to run) and schedules a new one a bit further in the future. We'll
-          // then run regardless, so we'd better cancel that future extra run,
-          // if it exists.
-
-          alarmManager.cancel(unmuteIntent);
-        }
+        unmute();
       }
-
     }
   }
 
+
+  /**
+   * Unmute. Called via AlarmManager and via the update UI tick, to deal with
+   * the weird inaccuracy of AlarmManager.
+   */
+  private void unmute() {
+    synchronized (previousMuteStates) {
+
+      Log.i(TAG, "Time = " + SystemClock.elapsedRealtime() + ". Unmute time = " + unmuteTime + ". Diff = " + (SystemClock.elapsedRealtime() - unmuteTime) / 1000.0f + "s");
+
+      for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
+        Sonos sonos = entry.getKey();
+        boolean muted = entry.getValue();
+        Log.i(TAG, "Restoring state of " + sonos.getName() + " to " + muted);
+        sonos.mute(muted);
+      }
+
+      previousMuteStates.clear();
+      tickerFuture.cancel(false);
+      SonosWidgetProvider.notifyChange(SonosService.this);
+
+      // There's a race condition where the user presses the button again as
+      // this alarm triggers. The main thread grabs the lock and we block.
+      // The main thread cancels the alarm (that's already started
+      // to run) and schedules a new one a bit further in the future. We'll
+      // then run regardless, so we'd better cancel that future extra run,
+      // if it exists.
+
+      alarmManager.cancel(unmuteIntent);
+    }
+  }
 
 
   /**
@@ -362,6 +369,10 @@ public class SonosService extends Service {
   class UpdateUI implements Runnable {
     public void run() {
       SonosWidgetProvider.notifyChange(SonosService.this);
+      if (SystemClock.elapsedRealtime() - unmuteTime > 0L) {
+        Log.i(TAG, "Forcing an unmute in case AlarmManager is late (which it often is for some reason)");
+        unmute();
+      }
     }
   }
 
