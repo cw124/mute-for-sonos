@@ -214,62 +214,65 @@ public class SonosService extends Service {
             }
           });
 
-        } else if (sonoses.isEmpty() && previousMuteStates.isEmpty()) {
-          // Above condition also checks that we're not in the middle of a
-          // mute (which could happen if we mute things, then lose contact
-          // with all Sonos devices). In this case probably better to allow
-          // user to keep adding time and maybe the Sonos systems will come
-          // back before the unmute is needed.
-
-          Log.i(TAG, "Wi-fi connected, but no Sonoses found. Inform user...");
-          handler.post(new Runnable() {
-            @Override
-            public void run() {
-              Toast.makeText(SonosService.this, "No Sonos systems found", Toast.LENGTH_SHORT).show();
-            }
-          });
-
-        } else if (previousMuteStates.isEmpty()) {
-          Log.i(TAG, "Not currently muted. Muting...");
-
-          // Capture the current mute state of all Sonos systems, so we can
-          // restore it when we unmute.
-
-          for (Sonos sonos : sonoses.values()) {
-            boolean muted = sonos.isMuted();
-            Log.i(TAG, "Muted state of " + sonos.getName() + " is " + muted);
-            previousMuteStates.put(sonos, muted);
-          }
-
-          // Mute all Sonos systems.
-
-          for (Sonos sonos : sonoses.values()) {
-            Log.i(TAG, "Setting muted on " + sonos.getName());
-            sonos.mute(true);
-          }
-
-          // Schedule a regular job to update the UI with time left until
-          // unmute.
-
-          unmuteTime = SystemClock.elapsedRealtime() + MUTE_LENGTH;
-          tickerFuture = executor.scheduleAtFixedRate(new UpdateUI(), 1000L, 1000L, TimeUnit.MILLISECONDS);
-
         } else {
-          Log.i(TAG, "Already muted. Adding more mute.");
 
-          unmuteTime = Math.min(unmuteTime + MUTE_LENGTH, SystemClock.elapsedRealtime() + MAX_MUTE_LENGTH);
+          if (sonoses.isEmpty() && previousMuteStates.isEmpty()) {
+            // Above condition also checks that we're not in the middle of a
+            // mute (which could happen if we mute things, then lose contact
+            // with all Sonos devices). In this case probably better to allow
+            // user to keep adding time and maybe the Sonos systems will come
+            // back before the unmute is needed.
 
-          // Cancel current unmute future event. A new one at the correct time
-          // will be added below.
-          alarmManager.cancel(unmuteIntent);
+            Log.i(TAG, "Wi-fi connected, but no Sonoses found. Inform user...");
+            handler.post(new Runnable() {
+              @Override
+              public void run() {
+                Toast.makeText(SonosService.this, "No Sonos systems found", Toast.LENGTH_SHORT).show();
+              }
+            });
+
+          } else if (previousMuteStates.isEmpty()) {
+            Log.i(TAG, "Not currently muted. Muting...");
+
+            // Capture the current mute state of all Sonos systems, so we can
+            // restore it when we unmute.
+
+            for (Sonos sonos : sonoses.values()) {
+              boolean muted = sonos.isMuted();
+              Log.i(TAG, "Muted state of " + sonos.getName() + " is " + muted);
+              previousMuteStates.put(sonos, muted);
+            }
+
+            // Mute all Sonos systems.
+
+            for (Sonos sonos : sonoses.values()) {
+              Log.i(TAG, "Setting muted on " + sonos.getName());
+              sonos.mute(true);
+            }
+
+            // Schedule a regular job to update the UI with time left until
+            // unmute.
+
+            unmuteTime = SystemClock.elapsedRealtime() + MUTE_LENGTH;
+            tickerFuture = executor.scheduleAtFixedRate(new UpdateUI(), 1000L, 1000L, TimeUnit.MILLISECONDS);
+
+          } else {
+            Log.i(TAG, "Already muted. Adding more mute.");
+
+            unmuteTime = Math.min(unmuteTime + MUTE_LENGTH, SystemClock.elapsedRealtime() + MAX_MUTE_LENGTH);
+
+            // Cancel current unmute future event. A new one at the correct time
+            // will be added below.
+            alarmManager.cancel(unmuteIntent);
+          }
+
+          // Set up an alarm to unmute (use an alarm so we are always woken up
+          // to unmute, even if the phone is in deep sleep).
+          unmuteIntent = PendingIntent.getBroadcast(this, 0, new Intent(UNMUTE_ACTION), 0);
+          alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, unmuteTime, unmuteIntent);
+
+          Log.i(TAG, "Time = " + SystemClock.elapsedRealtime() + ". Unmute time = " + unmuteTime + ". Diff = " + (SystemClock.elapsedRealtime() - unmuteTime) / 1000.0f + "s");
         }
-
-        // Set up an alarm to unmute (use an alarm so we are always woken up
-        // to unmute, even if the phone is in deep sleep).
-        unmuteIntent = PendingIntent.getBroadcast(this, 0, new Intent(UNMUTE_ACTION), 0);
-        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, unmuteTime, unmuteIntent);
-
-        Log.i(TAG, "unmute = " + unmuteTime + " current = " + SystemClock.elapsedRealtime() + " left = " + Math.round(Math.max(unmuteTime - SystemClock.elapsedRealtime(), 0L) / 1000.0f) + " id = " + System.identityHashCode(this));
       }
     }
 

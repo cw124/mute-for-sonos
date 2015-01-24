@@ -34,8 +34,7 @@
         android:layout_centerInParent="true"
         android:src="@drawable/ic_mute_disabled"
         android:clickable="false"
-        android:background="#00000000"
-        android:visibility="gone">
+        android:background="#00000000">
     </ImageView>
 
     <ImageView
@@ -44,7 +43,8 @@
         android:layout_height="48dip"
         android:layout_centerInParent="true"
         android:src="@drawable/ic_mute"
-        android:background="#00000000">
+        android:background="#00000000"
+        android:visibility="gone">
     </ImageView>
 
     <TextView
@@ -66,9 +66,11 @@
     -->
 
     <RelativeLayout
+        android:id="@+id/control_bubble"
         android:layout_width="56dip"
         android:layout_height="56dip"
-        android:layout_centerInParent="true">
+        android:layout_centerInParent="true"
+        android:visibility="gone">
 
         <RelativeLayout
             android:layout_width="16dip"
@@ -77,7 +79,6 @@
             android:layout_alignParentTop="true">
 
             <ImageView
-                android:id="@+id/control_bubble"
                 android:layout_width="16dip"
                 android:layout_height="16dip"
                 android:layout_centerInParent="true"
