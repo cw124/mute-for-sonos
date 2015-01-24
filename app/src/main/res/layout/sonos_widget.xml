@@ -82,7 +82,7 @@
                 android:layout_width="16dip"
                 android:layout_height="16dip"
                 android:layout_centerInParent="true"
-                android:src="@drawable/ic_blob"
+                android:src="@drawable/ic_bubble"
                 android:background="#00000000">
             </ImageView>
 
