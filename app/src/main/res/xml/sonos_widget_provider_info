@@ -4,5 +4,5 @@
     android:updatePeriodMillis="86400000"
     android:initialLayout="@layout/sonos_widget"
     android:resizeMode="none"
-    android:widgetCategory="home_screen">
+    android:widgetCategory="home_screen|keyguard">
 </appwidget-provider>
