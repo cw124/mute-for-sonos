@@ -16,8 +16,6 @@ import org.fourthline.cling.model.state.StateVariableValue;
 import org.fourthline.cling.model.types.UDAServiceId;
 import org.xml.sax.SAXException;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 
@@ -35,9 +33,6 @@ public class Sonos {
   private RemoteDevice sonosDevice;
 
   private Boolean muted = null;
-
-  private List<SonosCallback> callbackQueue = new ArrayList<SonosCallback>();
-  private List<SonosCallback> oneOffCallbackQueue = new ArrayList<SonosCallback>();
 
 
   public Sonos(String name, ControlPointProvider controlPointProvider, RemoteDevice sonosDevice) {
@@ -93,8 +88,6 @@ public class Sonos {
           } catch (SAXException e) {
             e.printStackTrace();
           }
-
-          doCallbacks();
         }
 
       }
@@ -112,54 +105,6 @@ public class Sonos {
 
   public String getName() {
     return name;
-  }
-
-
-  public interface SonosCallback {
-    public void callback(Sonos sonos);
-  }
-
-  public void addCallbackAfterChange(SonosCallback callback) {
-    synchronized (callbackQueue) {
-      callbackQueue.add(callback);
-    }
-  }
-
-  public void addOneOffCallbackAfterChange(SonosCallback callback) {
-    synchronized (oneOffCallbackQueue) {
-      oneOffCallbackQueue.add(callback);
-    }
-  }
-
-  private void doCallbacks() {
-    // Take a copy of the queues and empty the existing ones while holding
-    // the lock, then iterate and call callbacks. This allows callbacks to
-    // add further callbacks without modifying the queue we're iterating
-    // over (if we just hold the lock and iterate and call then if callbacks
-    // add a new callback on a different thread, we'll deadlock; if they add
-    // a new callback on the same thread (more likely), we'll get a
-    // concurrent modification exception).
-
-    Log.v(TAG, "Calling callbacks");
-
-    List<SonosCallback> callbackQueueCopy;
-    synchronized (callbackQueue) {
-      callbackQueueCopy = new ArrayList<SonosCallback>(callbackQueue);
-    }
-
-    for (SonosCallback callback : callbackQueueCopy) {
-      callback.callback(this);
-    }
-
-    List<SonosCallback> oneOffCallbackQueueCopy;
-    synchronized (oneOffCallbackQueue) {
-      oneOffCallbackQueueCopy = oneOffCallbackQueue;
-      oneOffCallbackQueue = new ArrayList<SonosCallback>();
-    }
-
-    for (SonosCallback callback : oneOffCallbackQueueCopy) {
-      callback.callback(this);
-    }
   }
 
 
