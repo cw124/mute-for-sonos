@@ -172,11 +172,13 @@ public class Sonos {
     Log.d(TAG, "Setting mute to " + mute);
 
     Service service = sonosDevice.findService(new UDAServiceId("RenderingControl"));
-    Action action = service.getAction("SetMute");
-    ActionInvocation invocation = new ActionInvocation(action);
-    invocation.setInput("Channel", "Master");
-    invocation.setInput("DesiredMute", Boolean.toString(mute));
-    runAction(invocation);
+    if (service != null) {
+      Action action = service.getAction("SetMute");
+      ActionInvocation invocation = new ActionInvocation(action);
+      invocation.setInput("Channel", "Master");
+      invocation.setInput("DesiredMute", Boolean.toString(mute));
+      runAction(invocation);
+    }
   }
 
 

@@ -28,6 +28,7 @@ import org.fourthline.cling.model.meta.DeviceIdentity;
 import org.fourthline.cling.model.meta.RemoteDevice;
 import org.fourthline.cling.model.types.DeviceType;
 import org.fourthline.cling.model.types.UDADeviceType;
+import org.fourthline.cling.model.types.UDAServiceId;
 import org.fourthline.cling.registry.DefaultRegistryListener;
 import org.fourthline.cling.registry.Registry;
 
@@ -548,7 +549,7 @@ public class SonosService extends Service {
                 device.getIdentity().getUdn() + ": " +
                 device.getDisplayString());
 
-        if (device.getType().equals(SONOS_DEVICE_TYPE)) {
+        if (device.getType().equals(SONOS_DEVICE_TYPE) && device.findService(new UDAServiceId("RenderingControl")) != null) {
           Log.i(TAG, "Found a Sonos system.");
 
           if (upnpService != null) {
