@@ -1,4 +1,4 @@
-package uk.co.chriswiggins.sonosmute;
+package uk.co.chriswiggins.muteforsonos;
 
 import org.fourthline.cling.controlpoint.ControlPoint;
 

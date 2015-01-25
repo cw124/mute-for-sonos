@@ -1,4 +1,4 @@
-package uk.co.chriswiggins.sonosmute;
+package uk.co.chriswiggins.muteforsonos;
 
 /**
  * openHAB, the open Home Automation Bus.
@@ -49,10 +49,7 @@ package uk.co.chriswiggins.sonosmute;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.fourthline.cling.model.meta.StateVariable;

@@ -9,3 +9,5 @@
 /gradle
 /gradlew
 /gradlew.bat
+app-release.apk
+manifest-merger-release-report.txt

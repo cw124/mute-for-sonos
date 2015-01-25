@@ -1,12 +1,10 @@
-package uk.co.chriswiggins.sonosmute;
+package uk.co.chriswiggins.muteforsonos;
 
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.ApplicationInfo;
 import android.test.ServiceTestCase;
-import android.test.mock.MockContext;
 
 
 public class SonosServiceTest extends ServiceTestCase<SonosService> {

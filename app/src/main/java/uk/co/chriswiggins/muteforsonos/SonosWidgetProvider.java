@@ -1,4 +1,4 @@
-package uk.co.chriswiggins.sonosmute;
+package uk.co.chriswiggins.muteforsonos;
 
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
@@ -16,8 +16,8 @@ public class SonosWidgetProvider extends AppWidgetProvider {
 
   private static final String TAG = "SonosWidgetProvider";
 
-  static final ComponentName THIS_APPWIDGET = new ComponentName("uk.co.chriswiggins.sonosmute",
-                  "uk.co.chriswiggins.sonosmute.SonosWidgetProvider");
+  static final ComponentName THIS_APPWIDGET = new ComponentName("uk.co.chriswiggins.muteforsonos",
+                  "uk.co.chriswiggins.muteforsonos.SonosWidgetProvider");
 
 
   @Override

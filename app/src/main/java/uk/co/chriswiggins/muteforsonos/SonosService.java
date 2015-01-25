@@ -1,4 +1,4 @@
-package uk.co.chriswiggins.sonosmute;
+package uk.co.chriswiggins.muteforsonos;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -53,7 +53,7 @@ public class SonosService extends Service {
 
   public static final String PAUSETEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
   public static final String UNMUTE_ACTION = "uk.co.chriswiggins.sonoscontrol.unmute";
-  private static final long MUTE_LENGTH = 10 * 1000L;
+  private static final long MUTE_LENGTH = 30 * 1000L;
   private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L;
   private static final long DEFAULT_RETRY_DISCOVERY_DELAY = 10 * 1000L;
 
@@ -213,7 +213,7 @@ public class SonosService extends Service {
       synchronized (previousMuteStates) {
 
         if (!wifiConnected) {
-          Log.i(TAG, "No wi-fi, inform user...");
+          Log.i(TAG, "No wi-fi, inform user2...");
           handler.post(new Runnable() {
             @Override
             public void run() {

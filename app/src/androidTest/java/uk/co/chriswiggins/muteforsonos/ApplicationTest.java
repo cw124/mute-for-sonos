@@ -1,4 +1,4 @@
-package uk.co.chriswiggins.sonosmute;
+package uk.co.chriswiggins.muteforsonos;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;
