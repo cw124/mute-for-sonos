@@ -36,11 +36,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -68,8 +65,7 @@ public class SonosService extends Service {
   private Map<Sonos, Boolean> previousMuteStates = new HashMap<Sonos, Boolean>();
   private boolean wifiConnected = false;
 
-  private ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
-          2, new SonosThreadFactory(), new SonosRejectedExecutionHandler());
+  private ScheduledThreadPoolExecutor executor;
   private ScheduledFuture<?> tickerFuture;
 
   private long unmuteTime;
@@ -91,6 +87,13 @@ public class SonosService extends Service {
   @Override
   public void onCreate() {
     super.onCreate();
+
+    executor = new ScheduledThreadPoolExecutor(1);
+
+    // Terminate all thread pool threads after a while so we don't use
+    // resources. We can afford to wait for them to be started up again.
+    executor.setKeepAliveTime(45, TimeUnit.SECONDS);
+    executor.allowCoreThreadTimeOut(true);
 
     handler = new Handler();
     alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
@@ -332,39 +335,6 @@ public class SonosService extends Service {
     return !previousMuteStates.isEmpty();
   }
 
-
-  /**
-   * Thread factory so we can log if there's uncaught exceptions.
-   * TODO: probably get rid of this. Add try/catch around other Runnables.
-   */
-  class SonosThreadFactory implements ThreadFactory {
-    @Override
-    public Thread newThread(Runnable r) {
-      Thread thread = new Thread(r);
-
-      thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-        @Override
-        public void uncaughtException(Thread thread, Throwable e) {
-          Log.e(TAG, "Uncaught exception from thread " + thread, e);
-        }
-      });
-
-      return thread;
-    }
-  }
-
-
-  /**
-   * Reject execution handler so we can see if anything can't run.
-   * TODO: probably get rid of this too, or at least research why it might
-   * happen.
-   */
-  class SonosRejectedExecutionHandler implements RejectedExecutionHandler {
-    @Override
-    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-      Log.e(TAG, "Could not schedule runnable: " + r.toString() + " (" + r.getClass().getCanonicalName() + ")");
-    }
-  }
 
   /**
    * Runs every second to update the UI.
