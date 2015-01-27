@@ -555,7 +555,7 @@ public class SonosService extends Service {
           Log.i(TAG, "Found a Sonos system.");
 
           if (upnpService != null) {
-            Sonos sonos = new Sonos(device.getDetails().getFriendlyName(), new AndroidControlPointProvider(upnpService), (RemoteDevice) device);
+            Sonos sonos = new Sonos(device.getDetails().getFriendlyName(), upnpService, (RemoteDevice) device);
             sonoses.put(device.getIdentity(), sonos);
 
             SonosWidgetProvider.notifyChange(SonosService.this);

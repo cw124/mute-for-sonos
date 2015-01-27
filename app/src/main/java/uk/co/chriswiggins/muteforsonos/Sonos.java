@@ -2,6 +2,7 @@ package uk.co.chriswiggins.muteforsonos;
 
 import android.util.Log;
 
+import org.fourthline.cling.android.AndroidUpnpService;
 import org.fourthline.cling.controlpoint.ActionCallback;
 import org.fourthline.cling.controlpoint.SubscriptionCallback;
 import org.fourthline.cling.model.action.ActionInvocation;
@@ -29,15 +30,15 @@ public class Sonos {
   private static final String TAG = "Sonos";
 
   private String name;
-  ControlPointProvider controlPointProvider;
+  private AndroidUpnpService upnpService;
   private RemoteDevice sonosDevice;
 
   private Boolean muted = null;
 
 
-  public Sonos(String name, ControlPointProvider controlPointProvider, RemoteDevice sonosDevice) {
+  public Sonos(String name, AndroidUpnpService upnpService, RemoteDevice sonosDevice) {
     this.name = name;
-    this.controlPointProvider = controlPointProvider;
+    this.upnpService = upnpService;
     this.sonosDevice = sonosDevice;
 
     RemoteService service = sonosDevice.findService(new UDAServiceId("RenderingControl"));
@@ -98,7 +99,7 @@ public class Sonos {
 
     };
 
-    controlPointProvider.getControlPoint().execute(callback);
+    upnpService.getControlPoint().execute(callback);
 
   }
 
@@ -129,7 +130,7 @@ public class Sonos {
 
   void runAction(ActionInvocation<RemoteService> action) {
     // Executes asynchronous in the background
-    controlPointProvider.getControlPoint().execute(new ActionCallback(action) {
+    upnpService.getControlPoint().execute(new ActionCallback(action) {
 
       @Override
       public void success(ActionInvocation invocation) {
