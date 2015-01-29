@@ -209,8 +209,6 @@ public class SonosService extends Service {
    */
   private void processIntent(Intent intent) {
     String action = intent.getAction();
-    String cmd = intent.getStringExtra("command");
-    Log.i(TAG, "Process intent: action = " + action + ", cmd = " + cmd);
     Log.i(TAG, "processIntent: Current state: " + getCurrentState());
 
     if (SonosService.PAUSETEMPORARILY_ACTION.equals(action)) {
