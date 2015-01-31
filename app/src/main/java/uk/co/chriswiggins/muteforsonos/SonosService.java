@@ -42,6 +42,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import uk.co.chriswiggins.muteforsonos.log.LogManager;
+
 
 public class SonosService extends Service {
 
@@ -54,6 +56,8 @@ public class SonosService extends Service {
   private static final long MUTE_LENGTH = 30 * 1000L;
   private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L;
   private static final long DEFAULT_RETRY_DISCOVERY_DELAY = 10 * 1000L;
+
+  private LogManager logManager;
 
   private Handler handler;
   private AndroidUpnpService upnpService;
@@ -87,6 +91,10 @@ public class SonosService extends Service {
   @Override
   public void onCreate() {
     super.onCreate();
+
+    logManager = new LogManager(this);
+    logManager.startLogging();
+    logManager.showNotification();
 
     executor = new ScheduledThreadPoolExecutor(1);
 
@@ -129,6 +137,8 @@ public class SonosService extends Service {
 
     // Stop any future jobs that are scheduled to run, and shutdown the executor.
     executor.shutdownNow();
+
+    logManager.shutdown();
 
     super.onDestroy();
   }

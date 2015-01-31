@@ -1,3 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="uk.co.chriswiggins.muteforsonos">
 
@@ -13,7 +15,7 @@
         android:icon="@drawable/ic_launcher" android:theme="@style/AppTheme">
 
 
-        <receiver android:name="uk.co.chriswiggins.muteforsonos.SonosWidgetProvider" >
+        <receiver android:name=".SonosWidgetProvider">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -25,18 +27,21 @@
 
 
         <service
-            android:name="uk.co.chriswiggins.muteforsonos.SonosService"
-            android:enabled="true">
+            android:name=".SonosService"
+            android:enabled="true"
+            android:exported="false">
 
             <intent-filter>
                 <action android:name="uk.co.chriswiggins.sonoscontrol.unmute" />
             </intent-filter>
-
         </service>
-
 
         <service android:name="org.fourthline.cling.android.AndroidUpnpServiceImpl"/>
 
+        <activity
+            android:name=".log.ShowLogActivity"
+            android:label="@string/title_activity_show_log" >
+        </activity>
 
     </application>
 

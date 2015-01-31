@@ -1,3 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <string name="app_name">Mute for Sonos</string>
+    <string name="title_activity_show_log">Mute for Sonos log</string>
+
 </resources>
