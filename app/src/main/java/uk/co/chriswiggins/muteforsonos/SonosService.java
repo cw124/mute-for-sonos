@@ -408,14 +408,13 @@ public class SonosService extends Service {
         if (networkInfo.getType() == ConnectivityManager.TYPE_WIFI) {
 
           if (networkInfo.getState() == NetworkInfo.State.CONNECTED) {
-            Log.d(TAG, "Wi-fi connected.");
+            Log.i(TAG, "Wi-fi connected (previously connected = " + wifiConnected + "). Will schedule device searches.");
             wifiConnected = true;
             SonosWidgetProvider.notifyChange(SonosService.this);
 
             // HACK: Cling doesn't always seem to notice wi-fi has connected, or maybe it notices
             // but discovery fails anyway for some reason. Schedule a few manual searches in a bit
             // to try to ensure we find everything.
-            Log.d(TAG, "Scheduling a few device searches to make sure we find everything...");
             executor.schedule(new RetryDeviceDiscovery(), 2*1000L, TimeUnit.MILLISECONDS);
             executor.schedule(new RetryDeviceDiscovery(), 5*1000L, TimeUnit.MILLISECONDS);
             executor.schedule(new RetryDeviceDiscovery(), 10*1000L, TimeUnit.MILLISECONDS);

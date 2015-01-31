@@ -17,11 +17,13 @@ import org.fourthline.cling.model.state.StateVariableValue;
 import org.fourthline.cling.model.types.UDAServiceId;
 import org.xml.sax.SAXException;
 
+import java.io.IOException;
 import java.util.Map;
 
 
+
 /**
- * Represents and interfaces with a specific Sonos system on the network.
+ * Represents an interface with a specific Sonos system on the network.
  * If you have multiple Sonos systems in your house, you will have multiple
  * instances of this class.
  */
@@ -36,72 +38,17 @@ public class Sonos {
   private Boolean muted = null;
 
 
+
   public Sonos(String name, AndroidUpnpService upnpService, RemoteDevice sonosDevice) {
     this.name = name;
     this.upnpService = upnpService;
     this.sonosDevice = sonosDevice;
 
     RemoteService service = sonosDevice.findService(new UDAServiceId("RenderingControl"));
-
-    SubscriptionCallback callback = new SubscriptionCallback(service, 600) {
-
-      @Override
-      public void established(GENASubscription sub) {
-        Log.d(TAG, "Subscription callback established (RenderingControl): " + sub.getSubscriptionId());
-      }
-
-      @Override
-      protected void failed(GENASubscription subscription, UpnpResponse responseStatus, Exception exception, String defaultMsg) {
-        Log.w(TAG, "Failed: " + defaultMsg);
-      }
-
-      @Override
-      public void ended(GENASubscription sub, CancelReason reason, UpnpResponse response) {
-        assert reason == null;
-        Log.i(TAG, "Ended");
-      }
-
-      public void eventReceived(GENASubscription sub) {
-
-        Log.d(TAG, "Received an event from Sonos: " + sub.getCurrentSequence().getValue());
-
-        Map<String, StateVariableValue> values = sub.getCurrentValues();
-
-        Log.v(TAG, "Values: " + values);
-
-        StateVariableValue lastChange = values.get("LastChange");
-
-        if (lastChange == null) {
-          Log.v(TAG, "LastChange is null");
-
-        } else {
-          Log.v(TAG, "LastChange is: " + lastChange.toString());
-          try {
-            Map<String, StateVariableValue> stateMap = SonosXMLParser.getRcEntriesFromString(lastChange.toString());
-
-            Log.d(TAG, "Parse is: " + stateMap);
-
-            if (stateMap.containsKey("MuteMaster")) {
-              muted = stateMap.get("MuteMaster").getValue().equals("1");
-              Log.d(TAG, "Got update event from Sonos to say muted is now set to " + muted);
-            }
-
-          } catch (SAXException e) {
-            e.printStackTrace();
-          }
-        }
-
-      }
-
-      public void eventsMissed(GENASubscription sub, int numberOfMissedEvents) {
-        Log.i(TAG, "Missed events: " + numberOfMissedEvents);
-      }
-
-    };
-
+    SubscriptionCallback callback = new SonosSubscriptionCallback(service, 600);
     upnpService.getControlPoint().execute(callback);
-
   }
+
 
 
   public String getName() {
@@ -109,13 +56,15 @@ public class Sonos {
   }
 
 
+
   public Boolean isMuted() {
     return muted;
   }
 
 
+
   public void mute(boolean mute) {
-    Log.d(TAG, "Setting mute to " + mute);
+    Log.d(TAG, "Setting mute to " + mute + " on " + name);
 
     Service service = sonosDevice.findService(new UDAServiceId("RenderingControl"));
     if (service != null) {
@@ -128,13 +77,12 @@ public class Sonos {
   }
 
 
+
   void runAction(ActionInvocation<RemoteService> action) {
-    // Executes asynchronous in the background
     upnpService.getControlPoint().execute(new ActionCallback(action) {
 
       @Override
       public void success(ActionInvocation invocation) {
-        assert invocation.getOutput().length == 0;
         Log.v(TAG, "Successfully called Sonos action!");
       }
 
@@ -144,6 +92,67 @@ public class Sonos {
       }
     });
   }
+
+
+
+  /**
+   * Listener for rendering control events (ultimately looking for mute
+   * events).
+   */
+  private class SonosSubscriptionCallback extends SubscriptionCallback {
+
+    public SonosSubscriptionCallback(Service service, int requestedDurationSeconds) {
+      super(service, requestedDurationSeconds);
+    }
+
+
+    @Override
+    public void established(GENASubscription sub) {
+      Log.d(TAG, "Subscription callback established (RenderingControl): " + sub.getSubscriptionId());
+    }
+
+
+    @Override
+    protected void failed(GENASubscription subscription, UpnpResponse responseStatus, Exception exception, String defaultMsg) {
+      Log.w(TAG, "Subscription callback failed: " + defaultMsg, exception);
+    }
+
+
+    @Override
+    public void ended(GENASubscription sub, CancelReason reason, UpnpResponse response) {
+      Log.i(TAG, "Subscription callback ended: " + reason);
+    }
+
+
+    public void eventReceived(GENASubscription sub) {
+      Map<String, StateVariableValue> values = sub.getCurrentValues();
+      StateVariableValue lastChange = values.get("LastChange");
+
+      if (lastChange != null) {
+        try {
+          Boolean possibleMuted = SonosXMLParser.getMuteFromRenderingControlEvent(lastChange.toString());
+
+          if (possibleMuted != null) {
+            muted = possibleMuted.booleanValue();
+            Log.d(TAG, "Got update event from " + name + " to say muted is now set to " + muted);
+          }
+
+        } catch (SAXException e) {
+          Log.w(TAG, "Could not parse Sonos event", e);
+        } catch (IOException e) {
+          Log.w(TAG, "Could not parse Sonos event", e);
+        }
+      }
+
+    }
+
+
+    public void eventsMissed(GENASubscription sub, int numberOfMissedEvents) {
+      Log.i(TAG, "Missed events: " + numberOfMissedEvents);
+    }
+
+  }
+
 
 
   @Override
@@ -159,8 +168,10 @@ public class Sonos {
   }
 
 
+
   @Override
   public int hashCode() {
     return this.sonosDevice.getIdentity().hashCode();
   }
+
 }
