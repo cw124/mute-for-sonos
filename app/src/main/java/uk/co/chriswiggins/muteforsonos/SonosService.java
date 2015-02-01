@@ -11,6 +11,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.IBinder;
@@ -55,7 +56,8 @@ public class SonosService extends Service {
   public static final String UNMUTE_ACTION = "uk.co.chriswiggins.sonoscontrol.unmute";
   private static final long MUTE_LENGTH = 30 * 1000L;
   private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L;
-  private static final long DEFAULT_RETRY_DISCOVERY_DELAY = 10 * 1000L;
+  private static final long DEFAULT_RETRY_DISCOVERY_DELAY = 1 * 1000L;
+  private static final long MAX_RETRY_DISCOVERY_DELAY = 30 * 60 * 1000L;
 
   private LogManager logManager;
 
@@ -65,9 +67,10 @@ public class SonosService extends Service {
   private AlarmManager alarmManager;
   private PendingIntent unmuteIntent;
 
-  private Map<DeviceIdentity, Sonos> sonoses = new ConcurrentHashMap<DeviceIdentity, Sonos>();
+  private Map<DeviceIdentity, Sonos> sonoses = new ConcurrentHashMap<DeviceIdentity, Sonos>(16, 0.75f, 1);
   private Map<Sonos, Boolean> previousMuteStates = new HashMap<Sonos, Boolean>();
   private boolean wifiConnected = false;
+  private String ssid;
 
   private ScheduledThreadPoolExecutor executor;
   private ScheduledFuture<?> tickerFuture;
@@ -78,6 +81,8 @@ public class SonosService extends Service {
   private Object retryDiscovery = new Object();
   private boolean retryScheduled = false;
   private long lastRetryStart = 0L;
+
+  private Map<String, SeenSonoses> seenSonoses = new ConcurrentHashMap<String, SeenSonoses>(16, 0.75f, 1);
 
 
 
@@ -365,13 +370,34 @@ public class SonosService extends Service {
   class RetryFailedDeviceDiscovery implements Runnable {
     public void run() {
       synchronized (retryDiscovery) {
-        Log.i(TAG, "Searching again for Sonos systems after failure...");
-        retryScheduled = false;
+        SeenSonoses seen = seenSonoses.get(ssid);
+        if (seen != null) {
+          if (sonoses.size() == seen.getMax(ssid)) {
+            Log.i(TAG, "Would have retried discovery but seems like we've now found all expected Sonoses");
+            retryScheduled = false;
 
-        if (upnpService != null) {
-          upnpService.getControlPoint().search(new UDADeviceTypeHeader(SONOS_DEVICE_TYPE));
+          } else {
+            Log.i(TAG, "Searching again for Sonos systems because we haven't found all we expected to...");
+
+            if (upnpService != null) {
+              upnpService.getControlPoint().search(new UDADeviceTypeHeader(SONOS_DEVICE_TYPE));
+            }
+
+            scheduleRetry();
+          }
         }
       }
+    }
+  }
+
+
+  private void scheduleRetry() {
+    Log.i(TAG, "Scheduling retry for " + retryDiscoveryDelay/1000 + " seconds' time");
+    executor.schedule(new RetryFailedDeviceDiscovery(), retryDiscoveryDelay, TimeUnit.MILLISECONDS);
+
+    retryDiscoveryDelay *= 2;
+    if (retryDiscoveryDelay > MAX_RETRY_DISCOVERY_DELAY) {
+      retryDiscoveryDelay = MAX_RETRY_DISCOVERY_DELAY;
     }
   }
 
@@ -408,8 +434,18 @@ public class SonosService extends Service {
         if (networkInfo.getType() == ConnectivityManager.TYPE_WIFI) {
 
           if (networkInfo.getState() == NetworkInfo.State.CONNECTED) {
-            Log.i(TAG, "Wi-fi connected (previously connected = " + wifiConnected + "). Will schedule device searches.");
+            WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            ssid = wifiManager.getConnectionInfo().getSSID();
             wifiConnected = true;
+
+            if (!seenSonoses.containsKey(ssid)) {
+              seenSonoses.put(ssid, new SeenSonoses());
+            }
+
+            Log.i(TAG, "Wi-fi connected (previously connected = " + wifiConnected +
+                "). ssid = " + ssid + ". Will schedule device searches.");
+
+
             SonosWidgetProvider.notifyChange(SonosService.this);
 
             // HACK: Cling doesn't always seem to notice wi-fi has connected, or maybe it notices
@@ -486,27 +522,6 @@ public class SonosService extends Service {
 
       if (device.getType().equals(SONOS_DEVICE_TYPE)) {
         Log.w(TAG, "Failed discovery was of a Sonos system.");
-
-        synchronized (retryDiscovery) {
-          if (retryScheduled) {
-            Log.i(TAG, "Retry already scheduled, will just wait for that one...");
-
-          } else {
-            Log.i(TAG, "Retry not currently scheduled, will schedule one");
-
-            retryScheduled = true;
-
-            if (SystemClock.elapsedRealtime() - lastRetryStart > 1000L * 60 * 60) {
-              Log.i(TAG, "Long time since last retry so assume this is a new failure. Reseting delay.");
-              retryDiscoveryDelay = DEFAULT_RETRY_DISCOVERY_DELAY;
-            }
-
-            Log.i(TAG, "Scheduling retry for " + retryDiscoveryDelay/1000 + " seconds' time");
-            executor.schedule(new RetryFailedDeviceDiscovery(), retryDiscoveryDelay, TimeUnit.MILLISECONDS);
-
-            retryDiscoveryDelay *= 2;
-          }
-        }
       }
 
       deviceRemoved(device);
@@ -535,6 +550,11 @@ public class SonosService extends Service {
             Sonos sonos = new Sonos(device.getDetails().getFriendlyName(), upnpService, (RemoteDevice) device);
             sonoses.put(device.getIdentity(), sonos);
 
+            if (!seenSonoses.containsKey(ssid)) {
+              seenSonoses.put(ssid, new SeenSonoses());
+            }
+            seenSonoses.get(ssid).seen(sonoses.size(), ssid);
+
             SonosWidgetProvider.notifyChange(SonosService.this);
           }
         }
@@ -545,11 +565,94 @@ public class SonosService extends Service {
       Log.i(TAG, "Device removed: "
               + (device.isFullyHydrated() ? device.getDisplayString() : device.getDisplayString() + " *"));
 
-      if (sonoses.remove(device.getIdentity()) != null) {
+      Sonos sonos = sonoses.remove(device.getIdentity());
+
+      if (sonos != null) {
         Log.i(TAG, "Removed Sonos system: " + device.getDetails().getFriendlyName());
+        sonos.shutdown();
         SonosWidgetProvider.notifyChange(SonosService.this);
+
+        SeenSonoses seen = seenSonoses.get(ssid);
+        if (seen != null && sonoses.size() < seen.getMax(ssid)) {
+          Log.i(TAG, "Fewer than maximum expected Sonoses for " + ssid + ". Will do a search");
+
+          synchronized (retryDiscovery) {
+            if (retryScheduled) {
+              Log.i(TAG, "Retry already scheduled, will just wait for that one...");
+
+            } else {
+              Log.i(TAG, "Retry not currently scheduled, will schedule one");
+
+              // TODO: do something with lastRetryStart
+              retryDiscoveryDelay = DEFAULT_RETRY_DISCOVERY_DELAY;
+
+              scheduleRetry();
+              retryScheduled = true;
+            }
+          }
+
+        }
       }
 
+    }
+  }
+
+
+  /**
+   * Tracks how many Sonoses we've seen on a given network, and how long ago
+   * we last saw each high watermark. Maximums eventually timeout and fall
+   * back to previous maximums so we can accommodate real changes to how many
+   * systems exist.
+   */
+  private static class SeenSonoses {
+
+    private static final long TIMEOUT = 24 * 60 * 60 * 1000L;
+
+    private int maxNumSonosesSeen = 0;
+
+    // Maps number of Sonoses seen to when at least that many was last seen.
+    private Map<Integer, Long> lastSeen = new ConcurrentHashMap<Integer, Long>(16, 0.75f, 1);
+
+
+    /**
+     * Records that the given number of Sonoses have been seen on the given
+     * network.
+     */
+    public void seen(int num, String ssid) {
+      Log.d(TAG, "Recording that we've seen " + num + " Sonses on " + ssid);
+
+      if (num > maxNumSonosesSeen) {
+        maxNumSonosesSeen = num;
+        Log.i(TAG, "New maximum Sonoses seen for " + ssid + ": " + num);
+      }
+
+      // Update last seen times for all counts less than or equal to the
+      // number given.
+      while (num > 0) {
+        lastSeen.put(new Integer(num), SystemClock.elapsedRealtime());
+        num--;
+      }
+    }
+
+
+    /**
+     * Gets the maximum number of Sonoses seen on the given network.
+     */
+    public int getMax(String ssid) {
+
+      // Process any timeouts.
+
+      while (maxNumSonosesSeen > 0 &&
+          SystemClock.elapsedRealtime() - lastSeen.get(maxNumSonosesSeen) > TIMEOUT) {
+
+        lastSeen.remove(maxNumSonosesSeen);
+        maxNumSonosesSeen--;
+
+        Log.i(TAG, "Not seen " + (maxNumSonosesSeen+1) + " Sonoses on " + ssid +
+            " for a long time. Max now " + maxNumSonosesSeen);
+      }
+
+      return maxNumSonosesSeen;
     }
   }
 

@@ -34,6 +34,7 @@ public class Sonos {
   private String name;
   private AndroidUpnpService upnpService;
   private RemoteDevice sonosDevice;
+  private SubscriptionCallback callback;
 
   private Boolean muted = null;
 
@@ -45,7 +46,7 @@ public class Sonos {
     this.sonosDevice = sonosDevice;
 
     RemoteService service = sonosDevice.findService(new UDAServiceId("RenderingControl"));
-    SubscriptionCallback callback = new SonosSubscriptionCallback(service, 600);
+    callback = new SonosSubscriptionCallback(service, 600);
     upnpService.getControlPoint().execute(callback);
   }
 
@@ -151,6 +152,13 @@ public class Sonos {
       Log.i(TAG, "Missed events: " + numberOfMissedEvents);
     }
 
+  }
+
+
+  public void shutdown() {
+    // Not sure if this is the right thing to do...
+    callback.end();
+    Log.i(TAG, "Finished shutdown for " + name);
   }
 
 
