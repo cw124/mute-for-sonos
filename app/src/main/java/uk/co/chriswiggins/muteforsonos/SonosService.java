@@ -11,7 +11,6 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.IBinder;
@@ -21,7 +20,6 @@ import android.util.Log;
 import android.widget.Toast;
 
 import org.fourthline.cling.android.AndroidUpnpService;
-import org.fourthline.cling.android.AndroidUpnpServiceImpl;
 import org.fourthline.cling.android.FixedAndroidLogHandler;
 import org.fourthline.cling.model.message.header.UDADeviceTypeHeader;
 import org.fourthline.cling.model.meta.Device;
@@ -34,7 +32,6 @@ import org.fourthline.cling.registry.DefaultRegistryListener;
 import org.fourthline.cling.registry.Registry;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -68,7 +65,8 @@ public class SonosService extends Service {
   private PendingIntent unmuteIntent;
 
   private Map<DeviceIdentity, Sonos> sonoses = new ConcurrentHashMap<DeviceIdentity, Sonos>(16, 0.75f, 1);
-  private Map<Sonos, Boolean> previousMuteStates = new HashMap<Sonos, Boolean>();
+  private Object muteLock = new Object();
+  private boolean muted = false;
   private boolean wifiConnected = false;
   private String ssid;
 
@@ -122,7 +120,7 @@ public class SonosService extends Service {
     // via the ServiceConnection object.
     Log.v(TAG, "Binding to AndroidUpnpService...");
     getApplicationContext().bindService(
-            new Intent(this, AndroidUpnpServiceImpl.class),
+            new Intent(this, SonosUpnpService.class),
             new UpnpServiceConnection(),
             Context.BIND_AUTO_CREATE);
 
@@ -190,18 +188,17 @@ public class SonosService extends Service {
    * the weird inaccuracy of AlarmManager.
    */
   private void unmute() {
-    synchronized (previousMuteStates) {
+    synchronized (muteLock) {
 
       Log.i(TAG, "Time = " + SystemClock.elapsedRealtime() + ". Unmute time = " + unmuteTime + ". Diff = " + (SystemClock.elapsedRealtime() - unmuteTime) / 1000.0f + "s");
 
-      for (Map.Entry<Sonos, Boolean> entry : previousMuteStates.entrySet()) {
-        Sonos sonos = entry.getKey();
-        boolean muted = entry.getValue();
-        Log.i(TAG, "Restoring state of " + sonos.getName() + " to " + muted);
-        sonos.mute(muted);
+      for (Sonos sonos : sonoses.values()) {
+        Log.i(TAG, "Restoring state of " + sonos.getName());
+        sonos.restoreMute();
       }
 
-      previousMuteStates.clear();
+      muted = false;
+
       if (tickerFuture != null) {
         tickerFuture.cancel(false);
       }
@@ -229,7 +226,7 @@ public class SonosService extends Service {
     if (SonosService.PAUSETEMPORARILY_ACTION.equals(action)) {
       Log.d(TAG, "Doing muting stuff");
 
-      synchronized (previousMuteStates) {
+      synchronized (muteLock) {
 
         if (!wifiConnected) {
           Log.i(TAG, "No wi-fi, inform user...");
@@ -240,13 +237,7 @@ public class SonosService extends Service {
             }
           });
 
-        } else if (sonoses.isEmpty() && previousMuteStates.isEmpty()) {
-          // Above condition also checks that we're not in the middle of a
-          // mute (which could happen if we mute things, then lose contact
-          // with all Sonos devices). In this case probably better to allow
-          // user to keep adding time and maybe the Sonos systems will come
-          // back before the unmute is needed.
-
+        } else if (sonoses.isEmpty()) {
           Log.i(TAG, "Wi-fi connected, but no Sonoses found. Inform user...");
           handler.post(new Runnable() {
             @Override
@@ -257,24 +248,17 @@ public class SonosService extends Service {
 
         } else {
 
-          if (previousMuteStates.isEmpty()) {
+          if (!muted) {
             Log.i(TAG, "Not currently muted. Muting...");
-
-            // Capture the current mute state of all Sonos systems, so we can
-            // restore it when we unmute.
-
-            for (Sonos sonos : sonoses.values()) {
-              boolean muted = sonos.isMuted();
-              Log.i(TAG, "Muted state of " + sonos.getName() + " is " + muted);
-              previousMuteStates.put(sonos, muted);
-            }
 
             // Mute all Sonos systems.
 
             for (Sonos sonos : sonoses.values()) {
               Log.i(TAG, "Setting muted on " + sonos.getName());
-              sonos.mute(true);
+              sonos.mute();
             }
+
+            muted = true;
 
             // Schedule a regular job to update the UI with time left until
             // unmute.
@@ -317,7 +301,7 @@ public class SonosService extends Service {
       return "No wi-fi";
     } else if (sonoses.isEmpty()) {
       return "No Sonos systems found";
-    } else if (previousMuteStates.isEmpty()) {
+    } else if (!muted) {
       return "Found " + sonoses.size() + " Sonos systems";
     } else {
       return "Muted. Seconds until unmute: " + Math.round(Math.max(unmuteTime - SystemClock.elapsedRealtime(), 0L) / 1000.0f);
@@ -345,7 +329,7 @@ public class SonosService extends Service {
 
 
   public boolean isMuted() {
-    return !previousMuteStates.isEmpty();
+    return muted;
   }
 
 
@@ -569,7 +553,6 @@ public class SonosService extends Service {
 
       if (sonos != null) {
         Log.i(TAG, "Removed Sonos system: " + device.getDetails().getFriendlyName());
-        sonos.shutdown();
         SonosWidgetProvider.notifyChange(SonosService.this);
 
         SeenSonoses seen = seenSonoses.get(ssid);

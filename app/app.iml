@@ -83,6 +83,7 @@
     </content>
     <orderEntry type="jdk" jdkName="Android API 21 Platform" jdkType="Android SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" exported="" name="cling-support-2.0.1" level="project" />
     <orderEntry type="library" exported="" name="jetty-io-8.1.8.v20121106" level="project" />
     <orderEntry type="library" exported="" name="support-v4-21.0.3" level="project" />
     <orderEntry type="library" exported="" name="jetty-servlet-8.1.8.v20121106" level="project" />

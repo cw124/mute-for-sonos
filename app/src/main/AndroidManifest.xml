@@ -36,7 +36,7 @@
             </intent-filter>
         </service>
 
-        <service android:name="org.fourthline.cling.android.AndroidUpnpServiceImpl"/>
+        <service android:name=".SonosUpnpService"/>
 
         <activity
             android:name=".log.ShowLogActivity"
