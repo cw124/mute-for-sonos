@@ -45,7 +45,7 @@ public class LogManager {
 
       process = Runtime.getRuntime().exec(
               "logcat -f " + logFile +
-              " -v time SonosService:I SonosWidgetProvider:I Sonos:I LogManager:I *:S");
+              " -v time SonosService:D SonosWidgetProvider:D Sonos:D LogManager:D *:S");
 
       Log.i(TAG, "Writing log to " + logFile + "...");
 

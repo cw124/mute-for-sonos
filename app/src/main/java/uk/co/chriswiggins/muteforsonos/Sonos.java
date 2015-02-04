@@ -26,16 +26,21 @@ public class Sonos {
   private AndroidUpnpService upnpService;
   private RemoteDevice sonosDevice;
   private Service service;
+  private Failure failure;
 
   private boolean previousMute = false;
 
 
 
-  public Sonos(String name, AndroidUpnpService upnpService, RemoteDevice sonosDevice) {
-    this.name = name;
+  /**
+   * @param failure Called whenever a failure occurs with this Sonos system.
+   */
+  public Sonos(AndroidUpnpService upnpService, RemoteDevice sonosDevice, Failure failure) {
+    this.name = sonosDevice.getDetails().getFriendlyName();
     this.upnpService = upnpService;
     this.sonosDevice = sonosDevice;
     this.service = sonosDevice.findService(new UDAServiceId("RenderingControl"));
+    this.failure = failure;
   }
 
 
@@ -43,6 +48,13 @@ public class Sonos {
   public String getName() {
     return name;
   }
+
+
+
+  public RemoteDevice getDevice() {
+    return sonosDevice;
+  }
+
 
 
   /**
@@ -63,6 +75,7 @@ public class Sonos {
       @Override
       public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
         Log.w(TAG, "Failed to get mute state for " + name + ": " + defaultMsg);
+        failure.failure(Sonos.this);
       }
     });
   }
@@ -92,6 +105,7 @@ public class Sonos {
       @Override
       public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg) {
         Log.w(TAG, "Failed to set mute state for " + name + ": " + defaultMsg);
+        failure.failure(Sonos.this);
       }
     });
   }
@@ -115,6 +129,16 @@ public class Sonos {
   @Override
   public int hashCode() {
     return this.sonosDevice.getIdentity().hashCode();
+  }
+
+
+
+  /**
+   * Interface used to define a method to call when there is a failure to get
+   * or set mute state on this Sonos system.
+   */
+  static interface Failure {
+    public void failure(Sonos sonos);
   }
 
 }
