@@ -47,6 +47,7 @@ public class SonosService extends Service implements Sonos.Failure {
 
   private static final String TAG = "SonosService";
 
+  private static final boolean LOG = false;
   private static final DeviceType SONOS_DEVICE_TYPE = new UDADeviceType("ZonePlayer");
   public static final String PAUSETEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
   public static final String UNMUTE_ACTION = "uk.co.chriswiggins.sonoscontrol.unmute";
@@ -85,9 +86,11 @@ public class SonosService extends Service implements Sonos.Failure {
   public void onCreate() {
     super.onCreate();
 
-    logManager = new LogManager(this);
-    logManager.startLogging();
-    logManager.showNotification();
+    if (LOG) {
+      logManager = new LogManager(this);
+      logManager.startLogging();
+      logManager.showNotification();
+    }
 
     executor = new ScheduledThreadPoolExecutor(1);
 
@@ -130,7 +133,9 @@ public class SonosService extends Service implements Sonos.Failure {
     // Stop any future jobs that are scheduled to run, and shutdown the executor.
     executor.shutdownNow();
 
-    logManager.shutdown();
+    if (LOG) {
+      logManager.shutdown();
+    }
 
     super.onDestroy();
   }
@@ -349,8 +354,6 @@ public class SonosService extends Service implements Sonos.Failure {
   private class WiFiBroadcastReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-      Log.v(TAG, "Got wi-fi intent: " + intent);
-
       Parcelable extra = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
 
       if (extra != null && extra instanceof NetworkInfo) {
