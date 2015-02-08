@@ -49,13 +49,14 @@ public class SonosService extends Service implements Sonos.Failure {
 
   private static final boolean LOG = false;
   private static final DeviceType SONOS_DEVICE_TYPE = new UDADeviceType("ZonePlayer");
-  public static final String PAUSETEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
+  public static final String MUTE_TEMPORARILY_ACTION = "uk.co.chriswiggins.sonoscontrol.pausetemporarily";
   public static final String UNMUTE_ACTION = "uk.co.chriswiggins.sonoscontrol.unmute";
   private static final long MUTE_LENGTH = 30 * 1000L;
-  private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L;
+  private static final long MAX_MUTE_LENGTH = (9*60 + 59) * 1000L; // 9:59s
 
   private LogManager logManager;
 
+  // Map from wi-fi network to a map of discovered Sonos systems.
   private Map<String, Map<DeviceIdentity, Sonos>> sonoses = new HashMap<String, Map<DeviceIdentity, Sonos>>();
 
   private Handler handler;
@@ -228,7 +229,7 @@ public class SonosService extends Service implements Sonos.Failure {
   private void processIntent(Intent intent) {
     String action = intent.getAction();
 
-    if (SonosService.PAUSETEMPORARILY_ACTION.equals(action)) {
+    if (SonosService.MUTE_TEMPORARILY_ACTION.equals(action)) {
 
       synchronized (muteLock) {
 
@@ -467,7 +468,7 @@ public class SonosService extends Service implements Sonos.Failure {
   class SonosRegistryListener extends DefaultRegistryListener {
 
     @Override
-    public void remoteDeviceDiscoveryFailed(Registry registry, final RemoteDevice device, final Exception ex) {
+    public void remoteDeviceDiscoveryFailed(Registry registry, RemoteDevice device, Exception ex) {
       Log.w(TAG, "Discovery failed of '" + device.getDisplayString() + "': "
               + (ex != null ? ex.toString() : "Couldn't retrieve device/service descriptors"));
 
@@ -488,7 +489,7 @@ public class SonosService extends Service implements Sonos.Failure {
       deviceRemoved(device);
     }
 
-    public void deviceAdded(final Device device) {
+    public void deviceAdded(Device device) {
       if (device.isFullyHydrated()) {
         Log.d(TAG, "Found device: " +
                 device.getIdentity().getUdn() + ": " +
@@ -514,7 +515,7 @@ public class SonosService extends Service implements Sonos.Failure {
       }
     }
 
-    public void deviceRemoved(final Device device) {
+    public void deviceRemoved(Device device) {
       Log.i(TAG, "Device removed: "
               + (device.isFullyHydrated() ? device.getDisplayString() : device.getDisplayString() + " *"));
 

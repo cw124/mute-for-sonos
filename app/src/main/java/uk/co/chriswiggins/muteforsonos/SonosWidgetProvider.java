@@ -49,8 +49,8 @@ public class SonosWidgetProvider extends AppWidgetProvider {
    * and hide actions if service not running.
    */
   private void defaultAppWidget(Context context, int[] appWidgetIds) {
-    final Resources res = context.getResources();
-    final RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.sonos_widget);
+    Resources res = context.getResources();
+    RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.sonos_widget);
 
     linkButtons(context, views);
     pushUpdate(context, appWidgetIds, views);
@@ -59,7 +59,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
 
   private static void pushUpdate(Context context, int[] appWidgetIds, RemoteViews views) {
     // Update specific list of appWidgetIds if given, otherwise default to all
-    final AppWidgetManager gm = AppWidgetManager.getInstance(context);
+    AppWidgetManager gm = AppWidgetManager.getInstance(context);
     if (appWidgetIds != null) {
       gm.updateAppWidget(appWidgetIds, views);
     } else {
@@ -93,8 +93,7 @@ public class SonosWidgetProvider extends AppWidgetProvider {
    * Update all active widget instances by pushing changes
    */
   static void performUpdate(SonosService service, int[] appWidgetIds) {
-    final Resources res = service.getResources();
-    final RemoteViews views = new RemoteViews(service.getPackageName(), R.layout.sonos_widget);
+    RemoteViews views = new RemoteViews(service.getPackageName(), R.layout.sonos_widget);
 
     if (!service.isWifiConnected()) {
       views.setViewVisibility(R.id.overlay_disabled, View.VISIBLE);
@@ -135,9 +134,9 @@ public class SonosWidgetProvider extends AppWidgetProvider {
 
 
   private static void linkButtons(Context context, RemoteViews views) {
-    Intent intent = new Intent(SonosService.PAUSETEMPORARILY_ACTION);
+    Intent intent = new Intent(SonosService.MUTE_TEMPORARILY_ACTION);
     intent.setComponent(new ComponentName(context, SonosService.class));
-    PendingIntent pendingIntent = PendingIntent.getService(context, 0 /* no requestCode */, intent, 0 /* no flags */);
+    PendingIntent pendingIntent = PendingIntent.getService(context, 0, intent, 0);
     views.setOnClickPendingIntent(R.id.control_main, pendingIntent);
   }
 

@@ -120,7 +120,7 @@ public class Sonos {
     if (!(o instanceof Sonos)) {
       return false;
     }
-    final Sonos that = (Sonos) o;
+    Sonos that = (Sonos) o;
     return this.sonosDevice.getIdentity().equals(that.sonosDevice.getIdentity());
   }
 
