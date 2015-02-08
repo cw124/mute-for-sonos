@@ -59,6 +59,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/androidTest/java" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/src/androidTest/jni" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/src/androidTest/rs" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/build/dependency-cache" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/assets" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/bundles" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/classes" />
@@ -79,6 +80,9 @@
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/rs" />
       <excludeFolder url="file://$MODULE_DIR$/build/intermediates/symbols" />
       <excludeFolder url="file://$MODULE_DIR$/build/outputs" />
+      <excludeFolder url="file://$MODULE_DIR$/build/test-classes" />
+      <excludeFolder url="file://$MODULE_DIR$/build/test-report" />
+      <excludeFolder url="file://$MODULE_DIR$/build/test-results" />
       <excludeFolder url="file://$MODULE_DIR$/build/tmp" />
     </content>
     <orderEntry type="jdk" jdkName="Android API 21 Platform" jdkType="Android SDK" />
@@ -87,6 +91,7 @@
     <orderEntry type="library" exported="" name="jetty-io-8.1.8.v20121106" level="project" />
     <orderEntry type="library" exported="" name="support-v4-21.0.3" level="project" />
     <orderEntry type="library" exported="" name="jetty-servlet-8.1.8.v20121106" level="project" />
+    <orderEntry type="library" exported="" name="seamless-swing-1.1.0" level="project" />
     <orderEntry type="library" exported="" name="jetty-util-8.1.8.v20121106" level="project" />
     <orderEntry type="library" exported="" name="jetty-security-8.1.8.v20121106" level="project" />
     <orderEntry type="library" exported="" name="jetty-continuation-8.1.8.v20121106" level="project" />
@@ -97,8 +102,8 @@
     <orderEntry type="library" exported="" name="seamless-util-1.1.0" level="project" />
     <orderEntry type="library" exported="" name="cling-core-2.0.1" level="project" />
     <orderEntry type="library" exported="" name="javax.servlet-3.0.0.v201112011016" level="project" />
-    <orderEntry type="library" exported="" name="seamless-xml-1.1.0" level="project" />
     <orderEntry type="library" exported="" name="jetty-server-8.1.8.v20121106" level="project" />
+    <orderEntry type="library" exported="" name="seamless-xml-1.1.0" level="project" />
     <orderEntry type="library" exported="" name="seamless-http-1.1.0" level="project" />
   </component>
 </module>
